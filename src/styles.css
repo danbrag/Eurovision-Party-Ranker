@@ -451,7 +451,7 @@ a {
 }
 
 .ranking-input-panel .score-list {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
 }
 
 .ranking-workspace {
@@ -546,19 +546,19 @@ a {
 }
 
 .score-input-row {
-  grid-template-columns: 38px 58px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: 44px 74px minmax(0, 1fr) minmax(190px, 280px);
+  gap: 16px;
 }
 
 .score-input-row .score-controls {
-  grid-column: 1 / -1;
+  grid-column: auto;
 }
 
 .performance-order {
   display: grid;
   place-items: center;
   width: 36px;
-  height: 36px;
+  height: 42px;
   border-radius: 8px;
   color: #080816;
   background: #ffd54a;
@@ -594,7 +594,7 @@ a {
 
 .score-thumb {
   position: relative;
-  width: 54px;
+  width: 64px;
   aspect-ratio: 4 / 3;
   overflow: hidden;
   border-radius: 8px;
@@ -974,7 +974,7 @@ input[type="range"] {
 
 .official-comparison table {
   width: 100%;
-  min-width: 1040px;
+  min-width: 1160px;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -1020,11 +1020,21 @@ input[type="range"] {
 
 .official-comparison th:nth-child(5),
 .official-comparison td:nth-child(5) {
+  width: 72px;
+}
+
+.official-comparison th:nth-child(6),
+.official-comparison td:nth-child(6) {
   width: 82px;
 }
 
-.official-comparison th:nth-child(n + 6),
-.official-comparison td:nth-child(n + 6) {
+.official-comparison th:nth-child(7),
+.official-comparison td:nth-child(7) {
+  width: 84px;
+}
+
+.official-comparison th:nth-child(n + 8),
+.official-comparison td:nth-child(n + 8) {
   width: 96px;
 }
 
@@ -1087,7 +1097,7 @@ input[type="range"] {
 
 .insight-block {
   min-width: 0;
-  padding: 10px;
+  padding: 14px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
   background: rgba(9, 12, 30, 0.58);
@@ -1108,7 +1118,7 @@ input[type="range"] {
 .insight-block .result-line {
   grid-template-columns: 30px minmax(0, 1fr);
   gap: 8px;
-  padding: 7px;
+  padding: 10px;
 }
 
 .insight-block .result-line .result-value {
@@ -1133,7 +1143,7 @@ input[type="range"] {
   grid-template-columns: 30px minmax(0, 1fr);
   align-items: start;
   gap: 8px;
-  padding: 7px;
+  padding: 10px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.07);
 }
@@ -1382,11 +1392,11 @@ input {
   }
 
   .score-row {
-    grid-template-columns: 38px 58px minmax(0, 1fr);
+    grid-template-columns: 44px 66px minmax(0, 1fr);
   }
 
   .score-input-row {
-    grid-template-columns: 38px 58px minmax(0, 1fr);
+    grid-template-columns: 44px 66px minmax(0, 1fr);
   }
 
   .score-controls {

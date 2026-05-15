@@ -611,6 +611,25 @@ function RankingBoardRow({ entry, rank, score }) {
 }
 
 function ResultsGate({ onConfirm, onCancel }) {
+  const confirmRef = useRef(null);
+
+  useEffect(() => {
+    confirmRef.current?.focus();
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCancel();
+        return;
+      }
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        onConfirm();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onCancel, onConfirm]);
+
   return (
     <section className="results-gate" aria-label="Results confirmation">
       <div className="results-modal" role="dialog" aria-modal="true" aria-labelledby="results-title">
@@ -623,7 +642,7 @@ function ResultsGate({ onConfirm, onCancel }) {
           <button className="secondary-action" type="button" onClick={onCancel}>
             Not yet
           </button>
-          <button className="primary-action" type="button" onClick={onConfirm}>
+          <button ref={confirmRef} className="primary-action" type="button" onClick={onConfirm}>
             Show results
           </button>
         </div>
@@ -863,7 +882,7 @@ function OfficialResultsTable({ rows, participants, officialVotes }) {
       <div className="score-matrix-header">
         <div>
           <h3>Official Eurovision Results</h3>
-          <p>Each rank shows whether that person placed the song higher, lower, or exactly right versus the official result.</p>
+          <p>Group avg is the room's average score out of 12. Group rank and player ranks compare score-derived rankings against the official place.</p>
         </div>
         {!!officialVotes.length && (
           <span className="table-note">{officialVotes.length} country-by-country vote rows imported.</span>
@@ -877,7 +896,9 @@ function OfficialResultsTable({ rows, participants, officialVotes }) {
                 <th>Result</th>
                 <th>Country</th>
                 <th>Song</th>
-                <th>Points</th>
+                <th>Total</th>
+                <th>Jury</th>
+                <th>Audience</th>
                 <th>Group Avg</th>
                 <th>Group Rank</th>
                 {participants.map((person) => (
@@ -895,6 +916,8 @@ function OfficialResultsTable({ rows, participants, officialVotes }) {
                     <span>{row.entry.artist}</span>
                   </td>
                   <td>{row.officialPoints ?? "--"}</td>
+                  <td>{row.entry.officialJuryPoints ?? "--"}</td>
+                  <td>{row.entry.officialAudiencePoints ?? "--"}</td>
                   <td>{row.groupAverage == null ? "--" : formatScore(row.groupAverage)}</td>
                   <td>
                     <RankComparisonChip rank={row.groupRank} delta={row.groupDelta} />
@@ -968,7 +991,7 @@ function ResultsInsights({ disagreements, closestRankers, groupGaps, consensus }
                 rank={index + 1}
                 title={row.entry.country}
                 detail={`${row.entry.song} by ${row.entry.artist}`}
-                value={`official #${row.officialRank}, room #${row.groupRank}`}
+                value={formatOfficialGap(row)}
               />
             ))
           ) : (
@@ -1002,6 +1025,13 @@ function InsightBlock({ title, icon: Icon, children }) {
       <div className="panel-list">{children}</div>
     </section>
   );
+}
+
+function formatOfficialGap(row) {
+  if (!Number.isFinite(row.groupRank)) return `Official #${row.officialRank}; room unranked`;
+  if (row.groupDelta === 0) return `Matched official #${row.officialRank}`;
+  const direction = row.groupDelta < 0 ? "overrated by room" : "underrated by room";
+  return `Official #${row.officialRank}; room #${row.groupRank} (${direction})`;
 }
 
 function InsightLine({ rank, title, detail, value }) {
