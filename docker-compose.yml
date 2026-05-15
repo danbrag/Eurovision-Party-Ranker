@@ -1,0 +1,19 @@
+services:
+  eurovision:
+    build: .
+    container_name: eurovision-2026
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      DATA_DIR: /data
+      ROOM_CODE: ILOVEDAN
+      ADMIN_PIN: "1234"
+      OFFICIAL_WATCH_ENABLED: "false"
+      OFFICIAL_WATCH_INTERVAL_MS: "45000"
+    volumes:
+      - eurovision-data:/data
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  eurovision-data:
