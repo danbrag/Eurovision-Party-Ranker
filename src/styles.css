@@ -547,6 +547,36 @@ a {
   min-width: 0;
 }
 
+.ranking-board-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  color: #f7f8ff;
+  background: transparent;
+  font: inherit;
+  font-weight: 900;
+  text-align: left;
+}
+
+.ranking-board-toggle span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ranking-board-toggle svg {
+  display: none;
+  flex: none;
+}
+
+.ranking-board-toggle:disabled {
+  cursor: default;
+}
+
 .segmented-control {
   display: inline-grid;
   grid-auto-flow: column;
@@ -2240,8 +2270,22 @@ input {
     display: grid;
   }
 
+  .ranking-board-toggle {
+    width: 100%;
+    justify-content: space-between;
+    min-height: 34px;
+  }
+
+  .ranking-board-toggle svg {
+    display: block;
+  }
+
   .segmented-control {
     width: 100%;
+  }
+
+  .ranking-board-panel.collapsed .ranking-board-content {
+    display: none;
   }
 
   .ranking-board-column-labels {

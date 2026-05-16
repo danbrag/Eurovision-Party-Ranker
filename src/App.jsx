@@ -573,7 +573,14 @@ function PreviewView({ entries }) {
 function ScoreView({ entries, participant, enjoymentLookup, predictionLookup, onScore }) {
   const [draftScores, setDraftScores] = useState({});
   const [boardMetric, setBoardMetric] = useState("enjoyment");
+  const [compactBoard, setCompactBoard] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 560px)").matches
+  );
+  const [boardCollapsed, setBoardCollapsed] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 560px)").matches
+  );
   const pendingScores = useRef(new Map());
+  const boardContentId = useId();
   const displayEnjoymentLookup = useMemo(() => {
     const next = new Map(enjoymentLookup);
     for (const [key, value] of Object.entries(draftScores)) {
@@ -609,6 +616,18 @@ function ScoreView({ entries, participant, enjoymentLookup, predictionLookup, on
       }),
     [activeLookup, entries, participant.id]
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const query = window.matchMedia("(max-width: 560px)");
+    function syncCompactBoard(event) {
+      setCompactBoard(event.matches);
+      setBoardCollapsed(event.matches);
+    }
+    syncCompactBoard(query);
+    query.addEventListener("change", syncCompactBoard);
+    return () => query.removeEventListener("change", syncCompactBoard);
+  }, []);
 
   useEffect(() => {
     setDraftScores((current) => {
@@ -689,9 +708,26 @@ function ScoreView({ entries, participant, enjoymentLookup, predictionLookup, on
             })}
           </div>
         </section>
-        <section className="ranking-board-panel" aria-label="Score-derived ranking board">
+        <section
+          className={cx("ranking-board-panel", compactBoard && boardCollapsed && "collapsed")}
+          aria-label="Score-derived ranking board"
+        >
           <div className="ranking-board-header">
-            <h3>Your Ranking Board</h3>
+            <h3>
+              <button
+                className="ranking-board-toggle"
+                type="button"
+                disabled={!compactBoard}
+                aria-expanded={compactBoard ? !boardCollapsed : true}
+                aria-controls={boardContentId}
+                onClick={() => {
+                  if (compactBoard) setBoardCollapsed((current) => !current);
+                }}
+              >
+                <span>Your Ranking Board</span>
+                {boardCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
+              </button>
+            </h3>
             <div className="segmented-control" aria-label="Ranking board score lens">
               {[
                 ["enjoyment", "Taste"],
@@ -709,15 +745,17 @@ function ScoreView({ entries, participant, enjoymentLookup, predictionLookup, on
               ))}
             </div>
           </div>
-          <RankingBoardList
-            entries={rankedEntries}
-            participantId={participant.id}
-            enjoymentLookup={enjoymentLookup}
-            predictionLookup={predictionLookup}
-            displayEnjoymentLookup={displayEnjoymentLookup}
-            displayPredictionLookup={displayPredictionLookup}
-            metric={boardMetric}
-          />
+          <div id={boardContentId} className="ranking-board-content">
+            <RankingBoardList
+              entries={rankedEntries}
+              participantId={participant.id}
+              enjoymentLookup={enjoymentLookup}
+              predictionLookup={predictionLookup}
+              displayEnjoymentLookup={displayEnjoymentLookup}
+              displayPredictionLookup={displayPredictionLookup}
+              metric={boardMetric}
+            />
+          </div>
         </section>
       </div>
     </section>
