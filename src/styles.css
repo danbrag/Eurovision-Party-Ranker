@@ -1405,7 +1405,7 @@ input[type="range"] {
 
 .score-matrix th:first-child,
 .score-matrix td:first-child {
-  width: 52px;
+  width: 68px;
 }
 
 .score-matrix th:nth-child(2),
@@ -1444,6 +1444,10 @@ input[type="range"] {
   color: #f7f8ff;
   background: transparent;
   font-weight: 900;
+}
+
+.score-matrix th:not(.dual-score-heading) button {
+  white-space: nowrap;
 }
 
 .score-matrix tbody tr:hover {
