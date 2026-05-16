@@ -304,7 +304,7 @@ export function joinParticipant(db, { roomCode, displayName, browserToken }) {
       const roomIsStillSmall =
         db
           .prepare("SELECT COUNT(*) AS count FROM participants WHERE room_code = ?")
-          .get(code).count <= 3;
+          .get(code).count <= config.maxParticipants;
       if (!staleClaim || !roomIsStillSmall) {
         throw Object.assign(new Error(`${name} is already claimed on another device.`), {
           status: 409
@@ -324,8 +324,8 @@ export function joinParticipant(db, { roomCode, displayName, browserToken }) {
   const count = db
     .prepare("SELECT COUNT(*) AS count FROM participants WHERE room_code = ?")
     .get(code).count;
-  if (count >= 3) {
-    throw Object.assign(new Error("This room already has 3 people."), { status: 409 });
+  if (count >= config.maxParticipants) {
+    throw Object.assign(new Error(`This room already has ${config.maxParticipants} people.`), { status: 409 });
   }
 
   const id = crypto.randomUUID();

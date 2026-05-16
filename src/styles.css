@@ -26,7 +26,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
   letter-spacing: 0;
 }
@@ -163,7 +164,7 @@ a {
   white-space: nowrap;
 }
 
-.identity-pill button,
+.identity-pill > button,
 .icon-link,
 .admin-toolbar button,
 .admin-inputs button {
@@ -173,6 +174,34 @@ a {
   border-radius: 8px;
   padding: 8px 10px;
   font-weight: 800;
+}
+
+.identity-pill > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.profile-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 360px;
+}
+
+.profile-switcher button {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #f7f8ff;
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 900;
+}
+
+.profile-switcher button.active {
+  color: #080816;
+  background: #39f4c1;
+  border-color: #39f4c1;
 }
 
 .tabbar {
@@ -802,6 +831,109 @@ input[type="range"] {
   font-weight: 900;
 }
 
+.winner-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.9fr);
+  gap: 12px;
+  align-items: stretch;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid rgba(57, 244, 193, 0.36);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(57, 244, 193, 0.16), rgba(255, 213, 74, 0.08)),
+    rgba(9, 12, 30, 0.78);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+}
+
+.winner-card-main {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  min-width: 0;
+}
+
+.winner-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 8px;
+  color: #080816;
+  background: #ffd54a;
+}
+
+.winner-card h3,
+.winner-card p {
+  margin: 0;
+}
+
+.winner-card h3 {
+  font-size: clamp(28px, 4vw, 46px);
+  line-height: 1;
+}
+
+.winner-card p:not(.eyebrow) {
+  margin-top: 7px;
+  max-width: 720px;
+  color: rgba(247, 248, 255, 0.74);
+  font-weight: 800;
+}
+
+.winner-standings {
+  display: grid;
+  gap: 8px;
+  align-content: center;
+}
+
+.winner-standing {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 9px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.winner-standing.first {
+  background: rgba(255, 213, 74, 0.18);
+}
+
+.winner-standing span {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  color: #080816;
+  background: #39f4c1;
+  font-weight: 900;
+}
+
+.winner-standing.first span {
+  background: #ffd54a;
+}
+
+.winner-standing strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.winner-standing output {
+  color: #39f4c1;
+  font-weight: 900;
+}
+
+.winner-standing small {
+  grid-column: 2 / -1;
+  color: rgba(247, 248, 255, 0.62);
+  font-weight: 800;
+}
+
 .results-gate {
   min-height: min(620px, calc(100vh - 230px));
   display: grid;
@@ -1302,6 +1434,27 @@ input {
   margin-top: 22px;
 }
 
+.local-profiles {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.local-profiles > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.local-profiles button {
+  border: 1px solid rgba(57, 244, 193, 0.4);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #f7f8ff;
+  background: rgba(57, 244, 193, 0.12);
+  font-weight: 900;
+}
+
 .splash-card {
   display: grid;
   place-items: center;
@@ -1344,6 +1497,15 @@ input {
 
   .topbar {
     display: grid;
+  }
+
+  .identity-pill {
+    flex-wrap: wrap;
+  }
+
+  .profile-switcher,
+  .identity-pill > button {
+    flex: 1 1 150px;
   }
 
   .tabbar {
@@ -1408,6 +1570,19 @@ input {
   .score-matrix-header {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .winner-card {
+    grid-template-columns: 1fr;
+  }
+
+  .winner-card-main {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .winner-icon {
+    width: 44px;
+    height: 44px;
   }
 
   .avg-chip {

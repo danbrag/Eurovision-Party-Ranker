@@ -55,6 +55,7 @@ app.get("/api/config", (_req, res) => {
   res.json({
     roomCode: config.roomCode,
     event: EVENT,
+    maxParticipants: config.maxParticipants,
     watcherRunning: watcher.running
   });
 });
@@ -130,6 +131,18 @@ app.post(
     const state = getState(db, config.roomCode);
     broadcast(state);
     res.json({ ok: true, state });
+  })
+);
+
+app.post(
+  "/api/admin/official-results",
+  asyncRoute(async (req, res) => {
+    requireAdmin(req);
+    const entries = Array.isArray(req.body.entries) ? req.body.entries : [];
+    for (const entry of entries) updateOfficialResult(db, entry);
+    const state = getState(db, config.roomCode);
+    broadcast(state);
+    res.json({ ok: true, result: { changed: entries.length }, state });
   })
 );
 

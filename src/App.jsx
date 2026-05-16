@@ -4,6 +4,7 @@ import confetti from "canvas-confetti";
 import {
   Award,
   BarChart3,
+  Calculator,
   ChevronDown,
   ChevronRight,
   Crown,
@@ -17,6 +18,7 @@ import {
   Sparkles,
   Star,
   Trophy,
+  UserPlus,
   Users
 } from "lucide-react";
 import { api, browserToken } from "./api.js";
@@ -42,6 +44,56 @@ const emptyState = {
   rankings: [],
   officialVotes: []
 };
+
+const SESSION_KEY = "eurovision-session";
+const PROFILES_KEY = "eurovision-profiles";
+const ACTIVE_PROFILE_KEY = "eurovision-active-profile-id";
+const DEFAULT_MAX_PARTICIPANTS = 6;
+
+function readJsonStorage(key, fallback) {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function uniqueProfiles(profiles) {
+  const byId = new Map();
+  for (const profile of profiles || []) {
+    if (!profile?.id || !profile?.displayName || !profile?.roomCode) continue;
+    byId.set(profile.id, profile);
+  }
+  return [...byId.values()];
+}
+
+function loadProfileState() {
+  const savedProfiles = readJsonStorage(PROFILES_KEY, []);
+  const profiles = uniqueProfiles([
+    ...(Array.isArray(savedProfiles) ? savedProfiles : []),
+    readJsonStorage(SESSION_KEY, null)
+  ]);
+  const activeId = localStorage.getItem(ACTIVE_PROFILE_KEY);
+  const active = profiles.find((profile) => profile.id === activeId) || profiles.at(-1) || null;
+  return { profiles, active };
+}
+
+function saveProfileState(profiles, active) {
+  const nextProfiles = uniqueProfiles(profiles);
+  localStorage.setItem(PROFILES_KEY, JSON.stringify(nextProfiles));
+  if (active) {
+    localStorage.setItem(ACTIVE_PROFILE_KEY, active.id);
+    localStorage.setItem(SESSION_KEY, JSON.stringify(active));
+  } else {
+    localStorage.removeItem(ACTIVE_PROFILE_KEY);
+    localStorage.removeItem(SESSION_KEY);
+  }
+}
+
+function upsertProfile(profiles, profile) {
+  return uniqueProfiles([...profiles.filter((item) => item.id !== profile.id), profile]);
+}
 
 function formatEntry(entry) {
   return `${entry.country} - ${entry.song} - ${entry.artist}`;
@@ -125,14 +177,13 @@ function useSocket(setState) {
 export default function App() {
   const [config, setConfig] = useState(null);
   const [state, setState] = useState(emptyState);
-  const [participant, setParticipant] = useState(() => {
-    const saved = localStorage.getItem("eurovision-session");
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [profileState, setProfileState] = useState(loadProfileState);
   const [activeTab, setActiveTab] = useState("preview");
   const [resultsGate, setResultsGate] = useState({ open: false, returnTab: "preview" });
   const [error, setError] = useState("");
   const [celebrated, setCelebrated] = useState(false);
+  const participant = profileState.active;
+  const localProfiles = profileState.profiles;
 
   useSocket(setState);
 
@@ -149,23 +200,31 @@ export default function App() {
   const performanceEntries = useMemo(() => finalEntries(entries), [entries]);
   const previewEntries = performanceEntries;
   const ownScores = useMemo(() => scoreMap(state.scores || []), [state.scores]);
+  const maxParticipants = config?.maxParticipants || DEFAULT_MAX_PARTICIPANTS;
   const allScored =
-    state.participants.length === 3 &&
+    state.participants.length > 0 &&
     state.participants.every((person) =>
       participantScoredEveryEntry(person.id, performanceEntries, state.scores || [])
     );
 
   useEffect(() => {
     if (!participant || !state.room) return;
-    const stillInRoom = (state.participants || []).some((person) => person.id === participant.id);
-    if (stillInRoom) return;
-    localStorage.removeItem("eurovision-session");
-    localStorage.removeItem("eurovision-browser-token");
-    setParticipant(null);
-    setActiveTab("preview");
-    setResultsGate({ open: false, returnTab: "preview" });
-    setError("The room was reset. Please join again.");
-  }, [participant, state.room, state.participants]);
+    const roomCode = state.room.roomCode;
+    const participantIds = new Set((state.participants || []).map((person) => person.id));
+    const validProfiles = localProfiles.filter(
+      (profile) => profile.roomCode === roomCode && participantIds.has(profile.id)
+    );
+    const active = validProfiles.find((profile) => profile.id === participant.id) || null;
+    if (validProfiles.length === localProfiles.length && active?.id === participant.id) return;
+
+    saveProfileState(validProfiles, active);
+    setProfileState({ profiles: validProfiles, active });
+    if (!active) {
+      setActiveTab("preview");
+      setResultsGate({ open: false, returnTab: "preview" });
+      if (participant) setError("The room was reset. Please join again.");
+    }
+  }, [participant, state.room, state.participants, localProfiles]);
 
   useEffect(() => {
     if (allScored && !celebrated) {
@@ -182,8 +241,9 @@ export default function App() {
         body: { ...form, browserToken: browserToken() }
       });
       const next = { ...data.participant, roomCode: form.roomCode.toUpperCase() };
-      localStorage.setItem("eurovision-session", JSON.stringify(next));
-      setParticipant(next);
+      const nextProfiles = upsertProfile(localProfiles, next);
+      saveProfileState(nextProfiles, next);
+      setProfileState({ profiles: nextProfiles, active: next });
       setState(data.state);
     } catch (err) {
       setError(err.message);
@@ -211,8 +271,25 @@ export default function App() {
   }
 
   function resetSession() {
-    localStorage.removeItem("eurovision-session");
-    setParticipant(null);
+    saveProfileState(localProfiles, null);
+    setProfileState((current) => ({ ...current, active: null }));
+    setActiveTab("preview");
+    setResultsGate({ open: false, returnTab: "preview" });
+  }
+
+  function switchProfile(profileId) {
+    const next = localProfiles.find((profile) => profile.id === profileId);
+    if (!next) return;
+    saveProfileState(localProfiles, next);
+    setProfileState({ profiles: localProfiles, active: next });
+    setError("");
+  }
+
+  function forgetProfile(profileId) {
+    const nextProfiles = localProfiles.filter((profile) => profile.id !== profileId);
+    const nextActive = participant?.id === profileId ? null : participant;
+    saveProfileState(nextProfiles, nextActive);
+    setProfileState({ profiles: nextProfiles, active: nextActive });
   }
 
   function selectTab(tabId) {
@@ -231,7 +308,16 @@ export default function App() {
 
   if (!participant) {
     return (
-      <JoinScreen config={config} error={error} onJoin={joinRoom} participantCount={state.participants.length} />
+      <JoinScreen
+        config={config}
+        error={error}
+        onJoin={joinRoom}
+        participantCount={state.participants.length}
+        maxParticipants={maxParticipants}
+        localProfiles={localProfiles}
+        onSwitchProfile={switchProfile}
+        onForgetProfile={forgetProfile}
+      />
     );
   }
 
@@ -248,8 +334,25 @@ export default function App() {
         </div>
         <div className="identity-pill">
           <Users size={18} />
-          <span>{participant.displayName}</span>
-          <button type="button" onClick={resetSession}>switch</button>
+          <div className="profile-switcher" aria-label="Active voter profile">
+            {localProfiles
+              .filter((profile) => profile.roomCode === participant.roomCode)
+              .map((profile) => (
+                <button
+                  key={profile.id}
+                  type="button"
+                  className={cx(profile.id === participant.id && "active")}
+                  aria-pressed={profile.id === participant.id}
+                  onClick={() => switchProfile(profile.id)}
+                >
+                  {profile.displayName}
+                </button>
+              ))}
+          </div>
+          <button type="button" onClick={resetSession}>
+            <UserPlus size={16} />
+            <span>Add voter</span>
+          </button>
         </div>
       </header>
 
@@ -339,10 +442,20 @@ function StageBackdrop() {
   );
 }
 
-function JoinScreen({ config, error, onJoin, participantCount }) {
+function JoinScreen({
+  config,
+  error,
+  onJoin,
+  participantCount,
+  maxParticipants,
+  localProfiles,
+  onSwitchProfile,
+  onForgetProfile
+}) {
   const [roomCode, setRoomCode] = useState(config.roomCode);
   const [displayName, setDisplayName] = useState("");
   const [releasing, setReleasing] = useState(false);
+  const roomProfiles = localProfiles.filter((profile) => profile.roomCode === roomCode.toUpperCase());
 
   async function releaseName() {
     if (!displayName.trim()) return;
@@ -352,8 +465,10 @@ function JoinScreen({ config, error, onJoin, participantCount }) {
         method: "POST",
         body: { roomCode, displayName }
       });
-      localStorage.removeItem("eurovision-session");
-      localStorage.removeItem("eurovision-browser-token");
+      const releasedProfile = roomProfiles.find(
+        (profile) => profile.displayName.toLowerCase() === displayName.trim().toLowerCase()
+      );
+      if (releasedProfile) onForgetProfile(releasedProfile.id);
       window.location.reload();
     } catch {
       setReleasing(false);
@@ -399,7 +514,19 @@ function JoinScreen({ config, error, onJoin, participantCount }) {
             Enter room
           </button>
         </form>
-        <p className="subtle">{participantCount}/3 people have joined.</p>
+        {!!roomProfiles.length && (
+          <div className="local-profiles">
+            <p className="eyebrow">Local profiles</p>
+            <div>
+              {roomProfiles.map((profile) => (
+                <button key={profile.id} type="button" onClick={() => onSwitchProfile(profile.id)}>
+                  {profile.displayName}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <p className="subtle">{participantCount}/{maxParticipants} people have joined.</p>
       </section>
     </div>
   );
@@ -691,15 +818,23 @@ function buildResultsAnalysis(entries, participants, scores, averages) {
         .map((row) => row.participantRanks.find((item) => item.person.id === person.id))
         .filter((item) => Number.isFinite(item?.rank));
       const totalMiss = rows.reduce((sum, item) => sum + Math.abs(item.delta), 0);
+      const exactMatches = rows.filter((item) => item.delta === 0).length;
       return {
         person,
         compared: rows.length,
+        exactMatches,
         totalMiss,
         averageMiss: rows.length ? totalMiss / rows.length : null
       };
     })
     .filter((item) => item.compared > 0)
-    .sort((a, b) => a.averageMiss - b.averageMiss || a.totalMiss - b.totalMiss);
+    .sort(
+      (a, b) =>
+        a.averageMiss - b.averageMiss ||
+        a.totalMiss - b.totalMiss ||
+        b.exactMatches - a.exactMatches ||
+        a.person.displayName.localeCompare(b.person.displayName)
+    );
 
   const groupGaps = officialRows
     .filter((row) => Number.isFinite(row.groupDelta) && row.groupDelta !== 0)
@@ -740,7 +875,7 @@ function ResultsView({ entries, participants, scores, officialVotes, allScored }
       <ViewHeader
         icon={Trophy}
         title="Scoreboards"
-        description={allScored ? "Everyone scored every finalist. Crown the house winner." : "Live group scores update here as everyone votes."}
+        description={allScored ? "Everyone scored every finalist. Crown the Group winner." : "Live group scores update here as everyone votes."}
       />
       {allScored && (
         <div className="celebration-banner">
@@ -748,6 +883,7 @@ function ResultsView({ entries, participants, scores, officialVotes, allScored }
           Everyone scored every finalist.
         </div>
       )}
+      <ResultsWinnerCard standings={analysis.closestRankers} officialCount={analysis.officialRows.length} />
       <ResultScoreTable
         entries={entries}
         participants={participants}
@@ -763,6 +899,51 @@ function ResultsView({ entries, participants, scores, officialVotes, allScored }
         groupGaps={analysis.groupGaps}
         consensus={analysis.consensus}
       />
+    </section>
+  );
+}
+
+function ResultsWinnerCard({ standings, officialCount }) {
+  const winner = standings[0];
+  const tiedWinners = winner
+    ? standings.filter(
+        (item) =>
+          item.averageMiss === winner.averageMiss &&
+          item.totalMiss === winner.totalMiss &&
+          item.compared === winner.compared
+      )
+    : [];
+  const isTie = tiedWinners.length > 1;
+  const winnerNames = tiedWinners.map((item) => item.person.displayName).join(", ");
+
+  return (
+    <section className="winner-card">
+      <div className="winner-card-main">
+        <div className="winner-icon"><Trophy size={24} /></div>
+        <div>
+          <p className="eyebrow">Group Winner</p>
+          <h3>{winner ? (isTie ? `Tie: ${winnerNames}` : winner.person.displayName) : "Waiting for official results"}</h3>
+          <p>
+            {winner
+              ? `Closest to the official final order, averaging ${formatScore(winner.averageMiss)} places off across ${winner.compared} ${winner.compared === 1 ? "song" : "songs"}.`
+              : "Add official placements and scores to crown the closest ranker."}
+          </p>
+        </div>
+      </div>
+      <div className="winner-standings">
+        {standings.length ? (
+          standings.slice(0, 3).map((item, index) => (
+            <article key={item.person.id} className={cx("winner-standing", index === 0 && "first")}>
+              <span>{index + 1}</span>
+              <strong>{item.person.displayName}</strong>
+              <output>{item.totalMiss} off</output>
+              <small>{item.exactMatches}/{item.compared || officialCount} exact</small>
+            </article>
+          ))
+        ) : (
+          <p className="empty-copy">No standings yet.</p>
+        )}
+      </div>
     </section>
   );
 }
@@ -882,7 +1063,7 @@ function OfficialResultsTable({ rows, participants, officialVotes }) {
       <div className="score-matrix-header">
         <div>
           <h3>Official Eurovision Results</h3>
-          <p>Group avg is the room's average score out of 12. Group rank and player ranks compare score-derived rankings against the official place.</p>
+          <p>Group avg is the average Group score out of 12. Group rank and player ranks compare score-derived rankings against the official place.</p>
         </div>
         {!!officialVotes.length && (
           <span className="table-note">{officialVotes.length} country-by-country vote rows imported.</span>
@@ -941,9 +1122,9 @@ function OfficialResultsTable({ rows, participants, officialVotes }) {
 
 function RankComparisonChip({ rank, delta }) {
   if (!Number.isFinite(rank)) return <span className="rank-chip missing">--</span>;
-  if (delta === 0) return <span className="rank-chip exact">#{rank} =</span>;
-  if (delta < 0) return <span className="rank-chip high">#{rank} ↑{Math.abs(delta)}</span>;
-  return <span className="rank-chip low">#{rank} ↓{delta}</span>;
+  if (delta === 0) return <span className="rank-chip exact">#{rank}</span>;
+  if (delta < 0) return <span className="rank-chip high">#{rank}</span>;
+  return <span className="rank-chip low">#{rank}</span>;
 }
 
 function ResultsInsights({ disagreements, closestRankers, groupGaps, consensus }) {
@@ -951,7 +1132,7 @@ function ResultsInsights({ disagreements, closestRankers, groupGaps, consensus }
     <section className="insights-section">
       <div className="section-heading">
         <h3>Insights</h3>
-        <p>Where the room agreed, drifted, and accidentally became Europe.</p>
+        <p>Where the Group agreed, drifted, and accidentally became Europe.</p>
       </div>
       <div className="insights-grid">
         <InsightBlock title="Biggest Disagreements" icon={Sparkles}>
@@ -995,7 +1176,7 @@ function ResultsInsights({ disagreements, closestRankers, groupGaps, consensus }
               />
             ))
           ) : (
-            <p className="empty-copy">Official placements will reveal the room's boldest misses.</p>
+            <p className="empty-copy">Official placements will reveal the Group's boldest misses.</p>
           )}
         </InsightBlock>
         <InsightBlock title="Tightest Consensus" icon={Crown}>
@@ -1028,10 +1209,10 @@ function InsightBlock({ title, icon: Icon, children }) {
 }
 
 function formatOfficialGap(row) {
-  if (!Number.isFinite(row.groupRank)) return `Official #${row.officialRank}; room unranked`;
+  if (!Number.isFinite(row.groupRank)) return `Official #${row.officialRank}; Group unranked`;
   if (row.groupDelta === 0) return `Matched official #${row.officialRank}`;
-  const direction = row.groupDelta < 0 ? "overrated by room" : "underrated by room";
-  return `Official #${row.officialRank}; room #${row.groupRank} (${direction})`;
+  const direction = row.groupDelta < 0 ? "overrated by Group" : "underrated by Group";
+  return `Official #${row.officialRank}; Group #${row.groupRank} (${direction})`;
 }
 
 function InsightLine({ rank, title, detail, value }) {
@@ -1129,6 +1310,10 @@ function AdminView({ entries, state, setState, setConfig, setError, config }) {
     if (path === "/api/admin/official-result") {
       return "Official result saved.";
     }
+    if (path === "/api/admin/official-results") {
+      const changed = data.result?.changed ?? body.entries?.length ?? 0;
+      return `Calculated official results saved: ${changed} rows updated.`;
+    }
     return "Admin action complete.";
   }
 
@@ -1165,6 +1350,131 @@ function AdminView({ entries, state, setState, setConfig, setError, config }) {
       }));
       setError(err.message);
     }
+  }
+
+  function numberFromDraft(value) {
+    if (value === "" || value == null) return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+
+  function clearSaveTimers(entryIds) {
+    for (const entryId of entryIds) {
+      const timer = saveTimers.current.get(entryId);
+      if (timer) clearTimeout(timer);
+      saveTimers.current.delete(entryId);
+    }
+  }
+
+  async function saveCalculatedEntries(calculatedDrafts) {
+    const entryIds = calculatedDrafts.map(({ entry }) => entry.id);
+    if (!entryIds.length) {
+      setError("No rows have enough data to calculate.");
+      return;
+    }
+
+    clearSaveTimers(entryIds);
+    setError("");
+    setNotice("");
+    setBusy("/api/admin/official-results");
+    setDrafts((current) => {
+      const next = { ...current };
+      for (const { entry, draft } of calculatedDrafts) {
+        next[entry.id] = draft;
+      }
+      return next;
+    });
+    setSaveStatuses((current) => {
+      const next = { ...current };
+      for (const entryId of entryIds) {
+        next[entryId] = { state: "saving", message: "Saving..." };
+      }
+      return next;
+    });
+
+    try {
+      localStorage.setItem("eurovision-admin-pin", adminPin);
+      const entriesPayload = calculatedDrafts.map(({ entry, draft }) => officialPayload(entry.id, draft));
+      const data = await api("/api/admin/official-results", {
+        method: "POST",
+        body: { adminPin, entries: entriesPayload }
+      });
+      if (data.state) setState(data.state);
+      setNotice(adminNotice("/api/admin/official-results", data, { entries: entriesPayload }));
+      setSaveStatuses((current) => {
+        const next = { ...current };
+        for (const entryId of entryIds) {
+          next[entryId] = { state: "saved", message: "Saved" };
+        }
+        return next;
+      });
+    } catch (err) {
+      setError(err.message);
+      setSaveStatuses((current) => {
+        const next = { ...current };
+        for (const entryId of entryIds) {
+          next[entryId] = { state: "error", message: "Could not save" };
+        }
+        return next;
+      });
+    } finally {
+      setBusy("");
+    }
+  }
+
+  function calculateTotals() {
+    const calculatedDrafts = entries
+      .map((entry) => {
+        const draft = draftFor(entry);
+        const jury = numberFromDraft(draft.officialJuryPoints);
+        const audience = numberFromDraft(draft.officialAudiencePoints);
+        if (jury == null || audience == null) return null;
+        return {
+          entry,
+          draft: {
+            ...draft,
+            officialTotalPoints: jury + audience
+          }
+        };
+      })
+      .filter(Boolean);
+    saveCalculatedEntries(calculatedDrafts);
+  }
+
+  function calculatePlaces() {
+    const rankedEntries = entries
+      .map((entry) => {
+        const draft = draftFor(entry);
+        return {
+          entry,
+          draft,
+          total: numberFromDraft(draft.officialTotalPoints),
+          jury: numberFromDraft(draft.officialJuryPoints) ?? -1,
+          audience: numberFromDraft(draft.officialAudiencePoints) ?? -1
+        };
+      })
+      .filter((item) => item.total != null)
+      .sort(
+        (a, b) =>
+          b.total - a.total ||
+          b.audience - a.audience ||
+          b.jury - a.jury ||
+          a.entry.country.localeCompare(b.entry.country)
+      );
+    if (!rankedEntries.length) {
+      saveCalculatedEntries([]);
+      return;
+    }
+    const placeByEntryId = new Map(rankedEntries.map((item, index) => [item.entry.id, index + 1]));
+
+    const calculatedDrafts = entries.map((entry) => ({
+      entry,
+      draft: {
+        ...draftFor(entry),
+        finalPlace: placeByEntryId.get(entry.id) || ""
+      }
+    }));
+    saveCalculatedEntries(calculatedDrafts);
   }
 
   function updateOfficialDraft(entry, field, value) {
@@ -1237,6 +1547,14 @@ function AdminView({ entries, state, setState, setConfig, setError, config }) {
         <button type="button" onClick={() => adminAction("/api/admin/import-official", {})} disabled={!!busy}>
           <RefreshCw size={16} />
           Pull official now
+        </button>
+        <button type="button" onClick={calculateTotals} disabled={!!busy}>
+          <Calculator size={16} />
+          Calculate Total
+        </button>
+        <button type="button" onClick={calculatePlaces} disabled={!!busy}>
+          <Trophy size={16} />
+          Calculate Place
         </button>
         <button
           type="button"

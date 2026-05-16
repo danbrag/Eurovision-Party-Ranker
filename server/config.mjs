@@ -20,6 +20,7 @@ export const config = {
   roomCode: (process.env.ROOM_CODE || "ILOVEDAN").trim().toUpperCase(),
   adminPin: process.env.ADMIN_PIN || "1234",
   dataDir: process.env.DATA_DIR || path.join(process.cwd(), ".local-data"),
+  maxParticipants: Math.max(1, Number(process.env.MAX_PARTICIPANTS || 6) || 6),
   watcherEnabled: process.env.OFFICIAL_WATCH_ENABLED === "true",
   watcherIntervalMs: Number(process.env.OFFICIAL_WATCH_INTERVAL_MS || 45_000)
 };

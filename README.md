@@ -58,15 +58,17 @@ npm run build
 
 ## Deployment
 
-1. Point your domain to the VPS.
-2. Edit `docker-compose.yml` and change `ADMIN_PIN`.
-3. Start the app:
+See `DEPLOYMENT.md` for a complete server walkthrough.
+
+Quick start:
 
 ```bash
+cp .env.example .env
+# Edit .env and set ADMIN_PIN.
 docker compose up -d --build
 ```
 
-4. Reverse proxy your domain to `127.0.0.1:3000`. A Caddy example is included in `Caddyfile.example`.
+Reverse proxy your domain to `127.0.0.1:3000`. A Caddy example is included in `Caddyfile.example`.
 
 Runtime data lives in the Docker volume `eurovision-data`, so rebuilds do not wipe scores.
 
