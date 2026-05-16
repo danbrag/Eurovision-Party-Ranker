@@ -593,9 +593,22 @@ a {
   color: rgba(247, 248, 255, 0.72);
 }
 
-.ranking-board-row output {
+.ranking-score-pair {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+}
+
+.ranking-score-pair output {
   color: #39f4c1;
   font-weight: 900;
+}
+
+.ranking-score-pair span {
+  color: rgba(247, 248, 255, 0.42);
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .score-row,
@@ -684,7 +697,7 @@ a {
 
 .score-controls {
   display: grid;
-  grid-template-columns: 76px 50px minmax(100px, 1fr);
+  grid-template-columns: 82px 76px minmax(100px, 1fr);
   gap: 8px;
   align-items: center;
   color: rgba(247, 248, 255, 0.74);
@@ -699,11 +712,11 @@ a {
 .score-controls output {
   display: grid;
   place-items: center;
-  width: 50px;
-  height: 44px;
+  width: 76px;
+  height: 52px;
   border-radius: 8px;
   background: #ff2f9a;
-  font-size: 22px;
+  font-size: 25px;
   font-weight: 900;
 }
 
@@ -1894,7 +1907,7 @@ input {
 
   .score-controls {
     grid-column: 1 / -1;
-    grid-template-columns: 76px 50px minmax(0, 1fr);
+    grid-template-columns: 82px 76px minmax(0, 1fr);
   }
 
   .modal-actions,

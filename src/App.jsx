@@ -684,7 +684,13 @@ function ScoreView({ entries, participant, enjoymentLookup, predictionLookup, on
               ))}
             </div>
           </div>
-          <RankingBoardList entries={rankedEntries} participantId={participant.id} scoreLookup={activeLookup} metric={boardMetric} />
+          <RankingBoardList
+            entries={rankedEntries}
+            participantId={participant.id}
+            scoreLookup={activeLookup}
+            secondaryScoreLookup={boardMetric === "prediction" ? enjoymentLookup : predictionLookup}
+            metric={boardMetric}
+          />
         </section>
       </div>
     </section>
@@ -712,7 +718,7 @@ function ScoreSlider({ label, entry, metric, value, onDraft, onCommit }) {
   );
 }
 
-function RankingBoardList({ entries, participantId, scoreLookup, metric }) {
+function RankingBoardList({ entries, participantId, scoreLookup, secondaryScoreLookup, metric }) {
   const listRef = useRef(null);
   const positions = useRef(new Map());
   const animationCleanups = useRef(new WeakMap());
@@ -775,6 +781,7 @@ function RankingBoardList({ entries, participantId, scoreLookup, metric }) {
           entry={entry}
           rank={index + 1}
           score={scoreLookup.get(`${participantId}:${entry.id}`)}
+          secondaryScore={secondaryScoreLookup.get(`${participantId}:${entry.id}`)}
           metric={metric}
         />
       ))}
@@ -782,7 +789,8 @@ function RankingBoardList({ entries, participantId, scoreLookup, metric }) {
   );
 }
 
-function RankingBoardRow({ entry, rank, score, metric }) {
+function RankingBoardRow({ entry, rank, score, secondaryScore, metric }) {
+  const secondaryLabel = metric === "prediction" ? "Taste" : "Pred";
   return (
     <article className="ranking-board-row" data-rank-id={entry.id}>
       <span className="personal-rank">#{rank}</span>
@@ -790,9 +798,12 @@ function RankingBoardRow({ entry, rank, score, metric }) {
         <strong>{entry.country}</strong>
         <span>{entry.song} by {entry.artist}</span>
       </div>
-      <output title={metric === "prediction" ? "Prediction score" : "Enjoyment score"}>
-        {score == null ? "--" : formatScore(score)}
-      </output>
+      <div className="ranking-score-pair">
+        <output title={metric === "prediction" ? "Prediction score" : "Enjoyment score"}>
+          {score == null ? "--" : formatScore(score)}
+        </output>
+        <span>{secondaryLabel} {secondaryScore == null ? "--" : formatScore(secondaryScore)}</span>
+      </div>
     </article>
   );
 }
