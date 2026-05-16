@@ -83,9 +83,7 @@ Docker Compose reads runtime settings from `.env` through `env_file`. Production
 | --- | --- |
 | `ROOM_CODE` | Shared room code shown to participants. |
 | `ADMIN_PIN` | Private admin unlock PIN. Required for production. |
-| `PORT` | Port the Node server listens on inside the container. |
-| `HOST_PORT` | Local host port bound by Docker Compose. |
-| `DATA_DIR` | Directory for the SQLite database. Use `/data` in Docker. |
+| `HOST_PORT` | Local host port bound by Docker Compose. The container always listens on `3000`. |
 | `MAX_PARTICIPANTS` | Maximum number of room participants. |
 | `OFFICIAL_WATCH_ENABLED` | Enables the best-effort official-results watcher when `true`. |
 | `OFFICIAL_WATCH_INTERVAL_MS` | Poll interval for the watcher. |

@@ -7,12 +7,12 @@ services:
       - .env
     environment:
       NODE_ENV: production
-      DATA_DIR: "${DATA_DIR:-/data}"
-      PORT: "${PORT:-3000}"
+      DATA_DIR: /data
+      PORT: "3000"
     volumes:
       - eurovision-data:/data
     ports:
-      - "127.0.0.1:${HOST_PORT:-3000}:${PORT:-3000}"
+      - "127.0.0.1:${HOST_PORT:-3000}:3000"
 
 volumes:
   eurovision-data:
