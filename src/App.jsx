@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronRight,
   Crown,
+  Download,
   Eye,
   Lock,
   Music2,
@@ -1504,6 +1505,157 @@ function ConfirmDialog({ title, description, confirmLabel, onConfirm, onCancel }
   );
 }
 
+function exportDateStamp() {
+  return new Date().toISOString().replace(/[:.]/g, "-");
+}
+
+function fileSafe(value) {
+  return String(value || "eurovision")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function downloadTextFile(filename, text, type) {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function csvValue(value) {
+  if (value == null) return "";
+  const text = String(value);
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function csvTable(rows) {
+  return rows.map((row) => row.map(csvValue).join(",")).join("\n");
+}
+
+function participantScoreRanks(entries, participants, scores, metric) {
+  const lookup = scoreMap(scores, metric);
+  return new Map(
+    participants.map((person) => [
+      person.id,
+      rankEntriesByScore(entries, (entry) => lookup.get(`${person.id}:${entry.id}`))
+    ])
+  );
+}
+
+function buildAdminExport(entries, state) {
+  const participants = state.participants || [];
+  const scores = state.scores || [];
+  const enjoymentLookup = scoreMap(scores, "enjoyment");
+  const judgesLookup = scoreMap(scores, "prediction");
+  const tasteAverages = averageScores(entries, participants, scores, "enjoyment");
+  const judgesAverages = averageScores(entries, participants, scores, "prediction");
+  const tasteAverageLookup = new Map(tasteAverages.map((entry) => [entry.id, entry.average]));
+  const judgesAverageLookup = new Map(judgesAverages.map((entry) => [entry.id, entry.average]));
+  const tasteRankLookup = rankEntriesByScore(entries, (entry) => tasteAverageLookup.get(entry.id));
+  const judgesRankLookup = rankEntriesByScore(entries, (entry) => judgesAverageLookup.get(entry.id));
+  const participantTasteRanks = participantScoreRanks(entries, participants, scores, "enjoyment");
+  const participantJudgesRanks = participantScoreRanks(entries, participants, scores, "prediction");
+  const analysis = buildResultsAnalysis(entries, participants, scores, tasteAverages, judgesAverages);
+
+  const entryRows = entries.map((entry) => {
+    const participantScores = participants.map((person) => ({
+      participantId: person.id,
+      displayName: person.displayName,
+      tasteScore: enjoymentLookup.get(`${person.id}:${entry.id}`) ?? null,
+      tasteRank: participantTasteRanks.get(person.id)?.get(entry.id) ?? null,
+      judgesScore: judgesLookup.get(`${person.id}:${entry.id}`) ?? null,
+      judgesRank: participantJudgesRanks.get(person.id)?.get(entry.id) ?? null
+    }));
+
+    return {
+      id: entry.id,
+      run: orderBadge(entry),
+      country: entry.country,
+      artist: entry.artist,
+      song: entry.song,
+      tasteAverage: tasteAverageLookup.get(entry.id) ?? null,
+      tasteRank: tasteRankLookup.get(entry.id) ?? null,
+      judgesAverage: judgesAverageLookup.get(entry.id) ?? null,
+      judgesRank: judgesRankLookup.get(entry.id) ?? null,
+      officialPlace: entry.finalPlace ?? null,
+      officialTotalPoints: entry.officialTotalPoints ?? null,
+      officialJuryPoints: entry.officialJuryPoints ?? null,
+      officialAudiencePoints: entry.officialAudiencePoints ?? null,
+      participantScores
+    };
+  });
+
+  return {
+    exportedAt: new Date().toISOString(),
+    room: state.room,
+    participants,
+    entries: entryRows,
+    closestJudgesRankers: analysis.closestRankers.map((item) => ({
+      participantId: item.person.id,
+      displayName: item.person.displayName,
+      compared: item.compared,
+      exactMatches: item.exactMatches,
+      totalMiss: item.totalMiss,
+      averageMiss: item.averageMiss
+    })),
+    officialVotes: state.officialVotes || []
+  };
+}
+
+function adminExportCsv(exportData) {
+  const participants = exportData.participants || [];
+  const header = [
+    "Run",
+    "Country",
+    "Artist",
+    "Song",
+    "Taste Avg",
+    "Taste Rank",
+    "Judges Avg",
+    "Judges Rank",
+    "Official Place",
+    "Official Total",
+    "Official Jury",
+    "Official Audience",
+    ...participants.flatMap((person) => [
+      `${person.displayName} Taste Score`,
+      `${person.displayName} Taste Rank`,
+      `${person.displayName} Judges Score`,
+      `${person.displayName} Judges Rank`
+    ])
+  ];
+
+  const rows = exportData.entries.map((entry) => {
+    const scoresByPerson = new Map(entry.participantScores.map((score) => [score.participantId, score]));
+    return [
+      entry.run,
+      entry.country,
+      entry.artist,
+      entry.song,
+      entry.tasteAverage,
+      entry.tasteRank,
+      entry.judgesAverage,
+      entry.judgesRank,
+      entry.officialPlace,
+      entry.officialTotalPoints,
+      entry.officialJuryPoints,
+      entry.officialAudiencePoints,
+      ...participants.flatMap((person) => {
+        const score = scoresByPerson.get(person.id) || {};
+        return [score.tasteScore, score.tasteRank, score.judgesScore, score.judgesRank];
+      })
+    ];
+  });
+
+  return csvTable([header, ...rows]);
+}
+
 function AdminView({ entries, state, setState, setConfig, setError, config }) {
   const [adminPin, setAdminPin] = useState(localStorage.getItem("eurovision-admin-pin") || "");
   const [adminUnlocked, setAdminUnlocked] = useState(false);
@@ -1769,6 +1921,29 @@ function AdminView({ entries, state, setState, setConfig, setError, config }) {
     }
   }
 
+  function exportAnalysisData(format) {
+    setError("");
+    const exportData = buildAdminExport(entries, state);
+    const roomCode = fileSafe(state.room?.roomCode || config?.roomCode || "room");
+    const stamp = exportDateStamp();
+    if (format === "csv") {
+      downloadTextFile(
+        `eurovision-${roomCode}-rankings-results-${stamp}.csv`,
+        adminExportCsv(exportData),
+        "text/csv;charset=utf-8"
+      );
+      setNotice("CSV export downloaded.");
+      return;
+    }
+
+    downloadTextFile(
+      `eurovision-${roomCode}-rankings-results-${stamp}.json`,
+      JSON.stringify(exportData, null, 2),
+      "application/json;charset=utf-8"
+    );
+    setNotice("JSON export downloaded.");
+  }
+
   return (
     <section className="view-stack">
       <ViewHeader
@@ -1800,77 +1975,93 @@ function AdminView({ entries, state, setState, setConfig, setError, config }) {
         </form>
       ) : (
         <>
-      <div className="admin-toolbar">
-        <button type="button" onClick={() => adminAction("/api/admin/import-official", {})} disabled={!!busy}>
-          <RefreshCw size={16} />
-          Pull official now
-        </button>
-        <button type="button" onClick={calculateTotals} disabled={!!busy}>
-          <Calculator size={16} />
-          Calculate Total
-        </button>
-        <button type="button" onClick={calculatePlaces} disabled={!!busy}>
-          <Trophy size={16} />
-          Calculate Place
-        </button>
-        <button
-          type="button"
-          onClick={() => adminAction("/api/admin/watcher", { enabled: !config.watcherRunning })}
-          disabled={!!busy}
-        >
-          <RefreshCw size={16} />
-          Toggle watcher
-        </button>
-        <button type="button" onClick={() => setConfirmReset(true)} disabled={!!busy}>
-          <RefreshCw size={16} />
-          Reset local room
-        </button>
-      </div>
-      {notice && <div className="success-banner">{notice}</div>}
-      {confirmReset && (
-        <ConfirmDialog
-          title="Reset local room?"
-          description="This clears all local scores and joined people. Everyone will be sent back to the join screen."
-          confirmLabel="Reset room"
-          onCancel={() => setConfirmReset(false)}
-          onConfirm={() => {
-            setConfirmReset(false);
-            adminAction("/api/admin/reset-room", {});
-          }}
-        />
-      )}
-      <div className="admin-table">
-        {entries.map((entry) => {
-          const draft = draftFor(entry);
-          const status = saveStatuses[entry.id];
-          return (
-            <article key={entry.id} className="admin-row">
-              <SongMini entry={entry} />
-              <div className="admin-inputs">
-                {[
-                  ["grandFinalOrder", "Run"],
-                  ["finalPlace", "Place"],
-                  ["officialTotalPoints", "Total"],
-                  ["officialJuryPoints", "Jury"],
-                  ["officialAudiencePoints", "Audience"]
-                ].map(([field, label]) => (
-                  <label key={field}>
-                    {label}
-                    <input
-                      inputMode="numeric"
-                      value={draft[field]}
-                      onChange={(event) => updateOfficialDraft(entry, field, event.target.value)}
-                    />
-                  </label>
-                ))}
-                <span className={cx("autosave-status", status?.state)} aria-live="polite">
-                  {status?.message || ""}
-                </span>
-              </div>
-            </article>
-          );
-        })}
-      </div>
+          <div className="admin-toolbar">
+            <button type="button" onClick={() => adminAction("/api/admin/import-official", {})} disabled={!!busy}>
+              <RefreshCw size={16} />
+              Pull official now
+            </button>
+            <button type="button" onClick={calculateTotals} disabled={!!busy}>
+              <Calculator size={16} />
+              Calculate Total
+            </button>
+            <button type="button" onClick={calculatePlaces} disabled={!!busy}>
+              <Trophy size={16} />
+              Calculate Place
+            </button>
+            <button
+              type="button"
+              onClick={() => adminAction("/api/admin/watcher", { enabled: !config.watcherRunning })}
+              disabled={!!busy}
+            >
+              <RefreshCw size={16} />
+              Toggle watcher
+            </button>
+            <button type="button" onClick={() => setConfirmReset(true)} disabled={!!busy}>
+              <RefreshCw size={16} />
+              Reset local room
+            </button>
+          </div>
+          <section className="admin-export-panel">
+            <div>
+              <h3>Export Analysis Data</h3>
+              <p>Download current scores, room rankings, judges rankings, and official results for post-show analysis.</p>
+            </div>
+            <div className="admin-export-actions">
+              <button type="button" onClick={() => exportAnalysisData("csv")}>
+                <Download size={16} />
+                Export CSV
+              </button>
+              <button type="button" onClick={() => exportAnalysisData("json")}>
+                <Download size={16} />
+                Export JSON
+              </button>
+            </div>
+          </section>
+          {notice && <div className="success-banner">{notice}</div>}
+          {confirmReset && (
+            <ConfirmDialog
+              title="Reset local room?"
+              description="This clears all local scores and joined people. Everyone will be sent back to the join screen."
+              confirmLabel="Reset room"
+              onCancel={() => setConfirmReset(false)}
+              onConfirm={() => {
+                setConfirmReset(false);
+                adminAction("/api/admin/reset-room", {});
+              }}
+            />
+          )}
+          <div className="admin-table">
+            {entries.map((entry) => {
+              const draft = draftFor(entry);
+              const status = saveStatuses[entry.id];
+              return (
+                <article key={entry.id} className="admin-row">
+                  <SongMini entry={entry} />
+                  <div className="admin-inputs">
+                    {[
+                      ["grandFinalOrder", "Run"],
+                      ["finalPlace", "Place"],
+                      ["officialTotalPoints", "Total"],
+                      ["officialJuryPoints", "Jury"],
+                      ["officialAudiencePoints", "Audience"]
+                    ].map(([field, label]) => (
+                      <label key={field}>
+                        {label}
+                        <input
+                          inputMode="numeric"
+                          value={draft[field]}
+                          onChange={(event) => updateOfficialDraft(entry, field, event.target.value)}
+                        />
+                      </label>
+                    ))}
+                    <span className={cx("autosave-status", status?.state)} aria-live="polite">
+                      {status?.message || ""}
+                    </span>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         </>
       )}
     </section>

@@ -1676,7 +1676,8 @@ input[type="range"] {
   font-size: 13px;
 }
 
-.admin-lock-panel {
+.admin-lock-panel,
+.admin-export-panel {
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr);
   gap: 14px;
@@ -1701,11 +1702,14 @@ input[type="range"] {
 }
 
 .admin-lock-panel h3,
-.admin-lock-panel p {
+.admin-lock-panel p,
+.admin-export-panel h3,
+.admin-export-panel p {
   margin: 0;
 }
 
-.admin-lock-panel p {
+.admin-lock-panel p,
+.admin-export-panel p {
   margin-top: 4px;
   color: rgba(247, 248, 255, 0.72);
 }
@@ -1723,6 +1727,19 @@ input[type="range"] {
   padding: 12px;
   border-radius: 8px;
   margin-bottom: 14px;
+}
+
+.admin-export-panel {
+  grid-template-columns: minmax(0, 1fr) auto;
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+.admin-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 label {
@@ -1758,12 +1775,22 @@ input {
 }
 
 .admin-inputs button,
-.admin-toolbar button {
+.admin-toolbar button,
+.admin-export-actions button {
   min-height: 39px;
   display: inline-flex;
   gap: 7px;
   align-items: center;
   justify-content: center;
+}
+
+.admin-export-actions button {
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #080816;
+  background: #ffd54a;
+  font-weight: 900;
 }
 
 .autosave-status {
@@ -2018,6 +2045,18 @@ input {
 
   .admin-inputs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-export-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-export-actions {
+    justify-content: stretch;
+  }
+
+  .admin-export-actions button {
+    flex: 1 1 150px;
   }
 
   .admin-inputs button,

@@ -21,7 +21,7 @@ Official Eurovision tallies are separate from house scores. Taste scores answer 
 3. Use `Preview` before the show to read each artist description in running order. Tap `Play` on a row to expand the inline YouTube player.
 4. Use `My Rankings` during the show. Score each song from `0` to `12` in performance order on the left for taste and judges; the ranking board on the right can flip between both rankings.
 5. Use `Results` to see the score-derived average rankings, the sortable user score table, taste-vs-judges insights, and imported or manually entered official Eurovision results.
-6. Use `Admin` for finals-night maintenance: official result import, watcher toggle, room reset, and manual official score entry. Admin is PIN-protected; the local default PIN is `1234`.
+6. Use `Admin` for finals-night maintenance: official result import, watcher toggle, room reset, manual official score entry, and CSV/JSON exports. Admin is PIN-protected; the local default PIN is `1234`.
 
 ## Entering Official Tallies
 
