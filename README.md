@@ -1,26 +1,26 @@
 # Eurovision 2026 Rankings
 
-A private, mobile-first watch-party app for previewing Eurovision 2026 songs, keeping personal quarter-point rankings during the show, deriving the house ranking from everyone's scores, and tracking official Eurovision results.
+A private, mobile-first watch-party app for previewing Eurovision 2026 songs, keeping personal quarter-point taste and prediction rankings during the show, deriving the house ranking from everyone's scores, and tracking official Eurovision results.
 
 ## Why It Works This Way
 
 This app is built around a small watch party, not a public scoreboard. The goal is to make finals night easy: preview the songs before the show, score them live while they perform, and compare the house result when everyone is done.
 
-`My Rankings` is score-driven. Each person scores songs from `0` to `12` in `.25` increments, and the page sorts that person's list from highest to lowest. This gives every person a live ranking without needing a separate manual ranking step after every performance.
+`My Rankings` is score-driven. Each person scores songs from `0` to `12` in `.25` increments in two lenses: taste (`how much did I enjoy it?`) and prediction (`how well do I think Eurovision will rank it?`). The page can sort either live ranking without needing a separate manual ranking step after every performance.
 
-The average score ranking is also score-driven. The `Results` page averages everyone's scores and sorts countries by that average. Ties fall back to running order/country sorting in the app logic, so if you care about exact ordering between two songs, give them slightly different quarter-point scores.
+The average score ranking is also score-driven. The `Results` page averages everyone's taste scores and prediction scores separately. Ties fall back to running order/country sorting in the app logic, so if you care about exact ordering between two songs, give them slightly different quarter-point scores.
 
 Group rankings are not shown on `My Rankings` because that page is for personal scoring. Group averages and the average score ranking live on `Results`, so nobody's live scores steer the room too early.
 
-Official Eurovision tallies are separate from house scores. House scores answer "what did we like?" while official tallies answer "what happened in Eurovision?" The app keeps both so the party can compare them.
+Official Eurovision tallies are separate from house scores. Taste scores answer "what did we like?", prediction scores answer "what did we think would happen?", and official tallies answer "what happened in Eurovision?" The app keeps all three so the party can compare them.
 
 ## How To Use
 
 1. Start the app and open `http://localhost:5173`.
 2. Join the room with the room code, default `ILOVEDAN`, and your display name.
 3. Use `Preview` before the show to read each artist description in running order. Tap `Play` on a row to expand the inline YouTube player.
-4. Use `My Rankings` during the show. Score each song from `0` to `12` in performance order on the left; the ranking board on the right reorders itself by your scores.
-5. Use `Results` to see the score-derived average ranking, the sortable user score table, comparison insights, and imported or manually entered official Eurovision results.
+4. Use `My Rankings` during the show. Score each song from `0` to `12` in performance order on the left for taste and prediction; the ranking board on the right can flip between both rankings.
+5. Use `Results` to see the score-derived average rankings, the sortable user score table, taste-vs-prediction insights, and imported or manually entered official Eurovision results.
 6. Use `Admin` for finals-night maintenance: official result import, watcher toggle, room reset, and manual official score entry. Admin is PIN-protected; the local default PIN is `1234`.
 
 ## Entering Official Tallies

@@ -107,7 +107,8 @@ export function openDatabase() {
       room_code TEXT NOT NULL,
       participant_id TEXT NOT NULL,
       entry_id TEXT NOT NULL,
-      score REAL NOT NULL,
+      enjoyment_score REAL,
+      prediction_score REAL,
       updated_at TEXT NOT NULL,
       PRIMARY KEY(room_code, participant_id, entry_id),
       FOREIGN KEY(participant_id) REFERENCES participants(id) ON DELETE CASCADE,
@@ -136,9 +137,62 @@ export function openDatabase() {
     );
   `);
 
+  ensureScoreSchema(db);
   ensureRoom(db, config.roomCode);
   seedIfEmpty(db);
   return db;
+}
+
+function ensureScoreSchema(db) {
+  const columns = db.prepare("PRAGMA table_info(scores)").all().map((column) => column.name);
+  if (columns.includes("enjoyment_score") && columns.includes("prediction_score")) return;
+
+  db.exec("PRAGMA foreign_keys = OFF");
+  db.exec("BEGIN");
+  try {
+    db.exec(`
+      CREATE TABLE scores_next (
+        room_code TEXT NOT NULL,
+        participant_id TEXT NOT NULL,
+        entry_id TEXT NOT NULL,
+        enjoyment_score REAL,
+        prediction_score REAL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY(room_code, participant_id, entry_id),
+        FOREIGN KEY(participant_id) REFERENCES participants(id) ON DELETE CASCADE,
+        FOREIGN KEY(entry_id) REFERENCES entries(id) ON DELETE CASCADE
+      );
+    `);
+
+    if (columns.includes("score")) {
+      db.exec(`
+        INSERT INTO scores_next (
+          room_code, participant_id, entry_id, enjoyment_score, prediction_score, updated_at
+        )
+        SELECT room_code, participant_id, entry_id, score, NULL, updated_at
+        FROM scores;
+      `);
+    } else {
+      const enjoymentColumn = columns.includes("enjoyment_score") ? "enjoyment_score" : "NULL";
+      const predictionColumn = columns.includes("prediction_score") ? "prediction_score" : "NULL";
+      db.exec(`
+        INSERT INTO scores_next (
+          room_code, participant_id, entry_id, enjoyment_score, prediction_score, updated_at
+        )
+        SELECT room_code, participant_id, entry_id, ${enjoymentColumn}, ${predictionColumn}, updated_at
+        FROM scores;
+      `);
+    }
+
+    db.exec("DROP TABLE scores");
+    db.exec("ALTER TABLE scores_next RENAME TO scores");
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  } finally {
+    db.exec("PRAGMA foreign_keys = ON");
+  }
 }
 
 export function ensureRoom(db, roomCode) {
@@ -256,7 +310,15 @@ export function getState(db, roomCode = config.roomCode) {
     .all(code)
     .map(participantFromRow);
   const scores = db
-    .prepare("SELECT participant_id AS participantId, entry_id AS entryId, score FROM scores WHERE room_code = ?")
+    .prepare(
+      `SELECT
+        participant_id AS participantId,
+        entry_id AS entryId,
+        enjoyment_score AS enjoymentScore,
+        enjoyment_score AS score,
+        prediction_score AS predictionScore
+       FROM scores WHERE room_code = ?`
+    )
     .all(code);
   const rankings = db
     .prepare("SELECT participant_id AS participantId, entry_id AS entryId, rank, submitted_at AS submittedAt FROM rankings WHERE room_code = ?")
@@ -380,23 +442,44 @@ export function requireParticipant(db, { roomCode, participantId, browserToken }
   return participant;
 }
 
-export function setScore(db, { roomCode, participantId, browserToken, entryId, score }) {
-  const code = ensureRoom(db, roomCode);
-  requireParticipant(db, { roomCode: code, participantId, browserToken });
+function validateScoreValue(score, label) {
+  if (score == null) return null;
   const value = Number(score);
   if (!Number.isFinite(value) || value < 0 || value > 12 || value * 4 !== Math.round(value * 4)) {
-    throw Object.assign(new Error("Scores must use quarter-point steps from 0 to 12."), {
+    throw Object.assign(new Error(`${label} scores must use quarter-point steps from 0 to 12.`), {
       status: 400
     });
+  }
+  return value;
+}
+
+export function setScore(db, { roomCode, participantId, browserToken, entryId, score, scoreType, enjoymentScore, predictionScore }) {
+  const code = ensureRoom(db, roomCode);
+  requireParticipant(db, { roomCode: code, participantId, browserToken });
+  const nextEnjoyment = validateScoreValue(
+    enjoymentScore ?? (scoreType === "enjoyment" || !scoreType ? score : null),
+    "Enjoyment"
+  );
+  const nextPrediction = validateScoreValue(
+    predictionScore ?? (scoreType === "prediction" ? score : null),
+    "Prediction"
+  );
+  if (nextEnjoyment == null && nextPrediction == null) {
+    throw Object.assign(new Error("Pick an enjoyment or prediction score to save."), { status: 400 });
   }
   const exists = db.prepare("SELECT 1 FROM entries WHERE id = ?").get(entryId);
   if (!exists) throw Object.assign(new Error("Unknown entry."), { status: 404 });
   db.prepare(
-    `INSERT INTO scores (room_code, participant_id, entry_id, score, updated_at)
-     VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO scores (
+       room_code, participant_id, entry_id, enjoyment_score, prediction_score, updated_at
+     )
+     VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(room_code, participant_id, entry_id)
-     DO UPDATE SET score = excluded.score, updated_at = excluded.updated_at`
-  ).run(code, participantId, entryId, value, now());
+     DO UPDATE SET
+       enjoyment_score = COALESCE(excluded.enjoyment_score, scores.enjoyment_score),
+       prediction_score = COALESCE(excluded.prediction_score, scores.prediction_score),
+       updated_at = excluded.updated_at`
+  ).run(code, participantId, entryId, nextEnjoyment, nextPrediction, now());
 }
 
 export function setRankings(db, { roomCode, participantId, browserToken, rankings }) {

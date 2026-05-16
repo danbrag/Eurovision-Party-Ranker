@@ -28,7 +28,8 @@ import {
   averageScores,
   biggestDisagreements,
   finalEntries,
-  scoreMap
+  scoreMap,
+  tastePredictionGaps
 } from "./lib/aggregate.js";
 
 const tabs = [
@@ -160,12 +161,13 @@ function youtubeEmbedUrl(url) {
 
 function participantScoredEveryEntry(participantId, entries, scores) {
   if (!participantId || entries.length === 0) return false;
-  const scored = new Set(
-    scores
-      .filter((score) => score.participantId === participantId)
-      .map((score) => score.entryId)
+  const enjoymentLookup = scoreMap(scores, "enjoyment");
+  const predictionLookup = scoreMap(scores, "prediction");
+  return entries.every(
+    (entry) =>
+      enjoymentLookup.has(`${participantId}:${entry.id}`) &&
+      predictionLookup.has(`${participantId}:${entry.id}`)
   );
-  return entries.every((entry) => scored.has(entry.id));
 }
 
 function useSocket(setState) {
@@ -201,7 +203,8 @@ export default function App() {
   const entries = state.entries || [];
   const performanceEntries = useMemo(() => finalEntries(entries), [entries]);
   const previewEntries = performanceEntries;
-  const ownScores = useMemo(() => scoreMap(state.scores || []), [state.scores]);
+  const ownEnjoymentScores = useMemo(() => scoreMap(state.scores || [], "enjoyment"), [state.scores]);
+  const ownPredictionScores = useMemo(() => scoreMap(state.scores || [], "prediction"), [state.scores]);
   const maxParticipants = config?.maxParticipants || DEFAULT_MAX_PARTICIPANTS;
   const allScored =
     state.participants.length > 0 &&
@@ -252,7 +255,7 @@ export default function App() {
     }
   }
 
-  async function updateScore(entryId, score) {
+  async function updateScore(entryId, scoreType, score) {
     if (!participant) return;
     setError("");
     try {
@@ -263,6 +266,7 @@ export default function App() {
           participantId: participant.id,
           browserToken: browserToken(),
           entryId,
+          scoreType,
           score
         }
       });
@@ -383,7 +387,8 @@ export default function App() {
           <ScoreView
             entries={performanceEntries}
             participant={participant}
-            scoreLookup={ownScores}
+            enjoymentLookup={ownEnjoymentScores}
+            predictionLookup={ownPredictionScores}
             onScore={updateScore}
           />
         )}
@@ -556,14 +561,16 @@ function PreviewView({ entries }) {
   );
 }
 
-function ScoreView({ entries, participant, scoreLookup, onScore }) {
+function ScoreView({ entries, participant, enjoymentLookup, predictionLookup, onScore }) {
   const [draftScores, setDraftScores] = useState({});
+  const [boardMetric, setBoardMetric] = useState("enjoyment");
   const pendingScores = useRef(new Map());
+  const activeLookup = boardMetric === "prediction" ? predictionLookup : enjoymentLookup;
   const rankedEntries = useMemo(
     () =>
       [...entries].sort((a, b) => {
-        const aScore = scoreLookup.get(`${participant.id}:${a.id}`);
-        const bScore = scoreLookup.get(`${participant.id}:${b.id}`);
+        const aScore = activeLookup.get(`${participant.id}:${a.id}`);
+        const bScore = activeLookup.get(`${participant.id}:${b.id}`);
         if (aScore == null && bScore == null) {
           return (a.grandFinalOrder ?? 999) - (b.grandFinalOrder ?? 999) || a.country.localeCompare(b.country);
         }
@@ -575,35 +582,39 @@ function ScoreView({ entries, participant, scoreLookup, onScore }) {
           a.country.localeCompare(b.country)
         );
       }),
-    [entries, participant.id, scoreLookup]
+    [activeLookup, entries, participant.id]
   );
 
   useEffect(() => {
     setDraftScores((current) => {
       const next = { ...current };
       let changed = false;
-      for (const [entryId, value] of Object.entries(current)) {
-        const saved = scoreLookup.get(`${participant.id}:${entryId}`) ?? 0;
+      for (const [draftKey, value] of Object.entries(current)) {
+        const [metric, entryId] = draftKey.split(":");
+        const lookup = metric === "prediction" ? predictionLookup : enjoymentLookup;
+        const saved = lookup.get(`${participant.id}:${entryId}`) ?? 0;
         if (saved === value) {
-          delete next[entryId];
-          pendingScores.current.delete(entryId);
+          delete next[draftKey];
+          pendingScores.current.delete(draftKey);
           changed = true;
         }
       }
       return changed ? next : current;
     });
-  }, [participant.id, scoreLookup]);
+  }, [enjoymentLookup, participant.id, predictionLookup]);
 
-  function draftScore(entryId, value) {
-    setDraftScores((current) => ({ ...current, [entryId]: value }));
+  function draftScore(entryId, metric, value) {
+    setDraftScores((current) => ({ ...current, [`${metric}:${entryId}`]: value }));
   }
 
-  function commitScore(entryId, value) {
-    const saved = scoreLookup.get(`${participant.id}:${entryId}`) ?? 0;
-    if (saved === value || pendingScores.current.get(entryId) === value) return;
-    pendingScores.current.set(entryId, value);
-    Promise.resolve(onScore(entryId, value)).finally(() => {
-      if (pendingScores.current.get(entryId) === value) pendingScores.current.delete(entryId);
+  function commitScore(entryId, metric, value) {
+    const lookup = metric === "prediction" ? predictionLookup : enjoymentLookup;
+    const key = `${metric}:${entryId}`;
+    const saved = lookup.get(`${participant.id}:${entryId}`) ?? 0;
+    if (saved === value || pendingScores.current.get(key) === value) return;
+    pendingScores.current.set(key, value);
+    Promise.resolve(onScore(entryId, metric, value)).finally(() => {
+      if (pendingScores.current.get(key) === value) pendingScores.current.delete(key);
     });
   }
 
@@ -612,15 +623,17 @@ function ScoreView({ entries, participant, scoreLookup, onScore }) {
       <ViewHeader
         icon={Star}
         title="My Rankings"
-        description="Score in performance order on the left; your ranking board updates from those scores on the right."
+        description="Score each song two ways: how much you enjoyed it, and how well you think Eurovision will rank it."
       />
       <div className="ranking-workspace">
         <section className="ranking-input-panel" aria-label="Performance-order scoring">
           <h3>Score In Performance Order</h3>
           <div className="score-list">
             {entries.map((entry) => {
-              const savedScore = scoreLookup.get(`${participant.id}:${entry.id}`) ?? 0;
-              const score = draftScores[entry.id] ?? savedScore;
+              const savedEnjoyment = enjoymentLookup.get(`${participant.id}:${entry.id}`) ?? 0;
+              const savedPrediction = predictionLookup.get(`${participant.id}:${entry.id}`) ?? 0;
+              const enjoymentScore = draftScores[`enjoyment:${entry.id}`] ?? savedEnjoyment;
+              const predictionScore = draftScores[`prediction:${entry.id}`] ?? savedPrediction;
               return (
                 <article key={entry.id} className="score-row score-input-row">
                   <span className="performance-order">{orderBadge(entry)}</span>
@@ -628,19 +641,22 @@ function ScoreView({ entries, participant, scoreLookup, onScore }) {
                     {entry.imageUrl ? <img src={entry.imageUrl} alt="" loading="lazy" /> : <div className="image-fallback" />}
                   </div>
                   <SongMini entry={entry} badge={null} />
-                  <div className="score-controls">
-                    <output>{formatScore(score)}</output>
-                    <input
-                      type="range"
-                      min="0"
-                      max="12"
-                      step="0.25"
-                      value={score}
-                      onChange={(event) => draftScore(entry.id, Number(event.target.value))}
-                      onPointerUp={(event) => commitScore(entry.id, Number(event.currentTarget.value))}
-                      onKeyUp={(event) => commitScore(entry.id, Number(event.currentTarget.value))}
-                      onBlur={(event) => commitScore(entry.id, Number(event.currentTarget.value))}
-                      aria-label={`Score ${formatEntry(entry)}`}
+                  <div className="dual-score-controls">
+                    <ScoreSlider
+                      label="Enjoyment"
+                      entry={entry}
+                      metric="enjoyment"
+                      value={enjoymentScore}
+                      onDraft={draftScore}
+                      onCommit={commitScore}
+                    />
+                    <ScoreSlider
+                      label="Prediction"
+                      entry={entry}
+                      metric="prediction"
+                      value={predictionScore}
+                      onDraft={draftScore}
+                      onCommit={commitScore}
                     />
                   </div>
                 </article>
@@ -649,15 +665,54 @@ function ScoreView({ entries, participant, scoreLookup, onScore }) {
           </div>
         </section>
         <section className="ranking-board-panel" aria-label="Score-derived ranking board">
-          <h3>Your Ranking Board</h3>
-          <RankingBoardList entries={rankedEntries} participantId={participant.id} scoreLookup={scoreLookup} />
+          <div className="ranking-board-header">
+            <h3>Your Ranking Board</h3>
+            <div className="segmented-control" aria-label="Ranking board score lens">
+              {[
+                ["enjoyment", "Taste"],
+                ["prediction", "Prediction"]
+              ].map(([metric, label]) => (
+                <button
+                  key={metric}
+                  type="button"
+                  className={cx(boardMetric === metric && "active")}
+                  aria-pressed={boardMetric === metric}
+                  onClick={() => setBoardMetric(metric)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <RankingBoardList entries={rankedEntries} participantId={participant.id} scoreLookup={activeLookup} metric={boardMetric} />
         </section>
       </div>
     </section>
   );
 }
 
-function RankingBoardList({ entries, participantId, scoreLookup }) {
+function ScoreSlider({ label, entry, metric, value, onDraft, onCommit }) {
+  return (
+    <label className={cx("score-controls", metric === "prediction" && "prediction")}>
+      <span>{label}</span>
+      <output>{formatScore(value)}</output>
+      <input
+        type="range"
+        min="0"
+        max="12"
+        step="0.25"
+        value={value}
+        onChange={(event) => onDraft(entry.id, metric, Number(event.target.value))}
+        onPointerUp={(event) => onCommit(entry.id, metric, Number(event.currentTarget.value))}
+        onKeyUp={(event) => onCommit(entry.id, metric, Number(event.currentTarget.value))}
+        onBlur={(event) => onCommit(entry.id, metric, Number(event.currentTarget.value))}
+        aria-label={`${label} score for ${formatEntry(entry)}`}
+      />
+    </label>
+  );
+}
+
+function RankingBoardList({ entries, participantId, scoreLookup, metric }) {
   const listRef = useRef(null);
   const positions = useRef(new Map());
   const animationCleanups = useRef(new WeakMap());
@@ -720,13 +775,14 @@ function RankingBoardList({ entries, participantId, scoreLookup }) {
           entry={entry}
           rank={index + 1}
           score={scoreLookup.get(`${participantId}:${entry.id}`)}
+          metric={metric}
         />
       ))}
     </div>
   );
 }
 
-function RankingBoardRow({ entry, rank, score }) {
+function RankingBoardRow({ entry, rank, score, metric }) {
   return (
     <article className="ranking-board-row" data-rank-id={entry.id}>
       <span className="personal-rank">#{rank}</span>
@@ -734,7 +790,9 @@ function RankingBoardRow({ entry, rank, score }) {
         <strong>{entry.country}</strong>
         <span>{entry.song} by {entry.artist}</span>
       </div>
-      <output>{score == null ? "--" : formatScore(score)}</output>
+      <output title={metric === "prediction" ? "Prediction score" : "Enjoyment score"}>
+        {score == null ? "--" : formatScore(score)}
+      </output>
     </article>
   );
 }
@@ -780,14 +838,15 @@ function ResultsGate({ onConfirm, onCancel }) {
   );
 }
 
-function buildResultsAnalysis(entries, participants, scores, averages) {
-  const lookup = scoreMap(scores);
-  const averageLookup = new Map(averages.map((entry) => [entry.id, entry.average]));
-  const groupRanks = rankEntriesByScore(entries, (entry) => averageLookup.get(entry.id));
+function buildResultsAnalysis(entries, participants, scores, enjoymentAverages, predictionAverages) {
+  const predictionLookup = scoreMap(scores, "prediction");
+  const enjoymentAverageLookup = new Map(enjoymentAverages.map((entry) => [entry.id, entry.average]));
+  const predictionAverageLookup = new Map(predictionAverages.map((entry) => [entry.id, entry.average]));
+  const groupRanks = rankEntriesByScore(entries, (entry) => predictionAverageLookup.get(entry.id));
   const participantRanks = new Map(
     participants.map((person) => [
       person.id,
-      rankEntriesByScore(entries, (entry) => lookup.get(`${person.id}:${entry.id}`))
+      rankEntriesByScore(entries, (entry) => predictionLookup.get(`${person.id}:${entry.id}`))
     ])
   );
 
@@ -800,7 +859,8 @@ function buildResultsAnalysis(entries, participants, scores, averages) {
         entry,
         officialRank: entry.finalPlace,
         officialPoints: entry.officialTotalPoints,
-        groupAverage: averageLookup.get(entry.id),
+        groupAverage: predictionAverageLookup.get(entry.id),
+        groupTasteAverage: enjoymentAverageLookup.get(entry.id),
         groupRank,
         groupDelta: rankDelta(groupRank, entry.finalPlace),
         participantRanks: participants.map((person) => {
@@ -847,13 +907,14 @@ function buildResultsAnalysis(entries, participants, scores, averages) {
     .map((entry) => {
       const values = scores
         .filter((score) => score.entryId === entry.id)
-        .map((score) => score.score);
+        .map((score) => Number(score.enjoymentScore ?? score.score))
+        .filter(Number.isFinite);
       const spread = values.length > 1 ? Math.max(...values) - Math.min(...values) : null;
       return {
         entry,
         spread,
         count: values.length,
-        average: averageLookup.get(entry.id)
+        average: enjoymentAverageLookup.get(entry.id)
       };
     })
     .filter((item) => item.spread != null)
@@ -865,11 +926,14 @@ function buildResultsAnalysis(entries, participants, scores, averages) {
 
 function ResultsView({ entries, participants, scores, officialVotes, allScored }) {
   const [sort, setSort] = useState({ key: "order", direction: "asc" });
-  const averages = averageScores(entries, participants, scores);
-  const disagreements = biggestDisagreements(entries, participants, scores);
+  const averages = averageScores(entries, participants, scores, "enjoyment");
+  const predictionAverages = averageScores(entries, participants, scores, "prediction");
+  const disagreements = biggestDisagreements(entries, participants, scores, "enjoyment");
+  const predictionDisagreements = biggestDisagreements(entries, participants, scores, "prediction");
+  const scoreGaps = tastePredictionGaps(entries, participants, scores);
   const analysis = useMemo(
-    () => buildResultsAnalysis(entries, participants, scores, averages),
-    [entries, participants, scores, averages]
+    () => buildResultsAnalysis(entries, participants, scores, averages, predictionAverages),
+    [entries, participants, scores, averages, predictionAverages]
   );
 
   return (
@@ -877,12 +941,12 @@ function ResultsView({ entries, participants, scores, officialVotes, allScored }
       <ViewHeader
         icon={Trophy}
         title="Scoreboards"
-        description={allScored ? "Everyone scored every finalist. Crown the Winner." : "Live group scores update here as everyone votes."}
+        description={allScored ? "Everyone scored taste and prediction for every finalist. Crown the Winner." : "Live taste scores and prediction scores update here as everyone votes."}
       />
       {allScored && (
         <div className="celebration-banner">
           <PartyPopper size={20} />
-          Everyone scored every finalist.
+          Everyone scored taste and prediction for every finalist.
         </div>
       )}
       <ResultScoreTable
@@ -890,15 +954,18 @@ function ResultsView({ entries, participants, scores, officialVotes, allScored }
         participants={participants}
         scores={scores}
         averages={averages}
+        predictionAverages={predictionAverages}
         sort={sort}
         setSort={setSort}
       />
       <OfficialResultsTable rows={analysis.officialRows} participants={participants} officialVotes={officialVotes} />
       <ResultsInsights
         disagreements={disagreements}
+        predictionDisagreements={predictionDisagreements}
         closestRankers={analysis.closestRankers}
         groupGaps={analysis.groupGaps}
         consensus={analysis.consensus}
+        scoreGaps={scoreGaps}
       />
       <ResultsWinnerCard standings={analysis.closestRankers} officialRows={analysis.officialRows} />
     </section>
@@ -966,8 +1033,8 @@ function ResultsWinnerCard({ standings, officialRows }) {
         <span className="winner-toggle-icon">
           {expanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
         </span>
-        <span>
-          <span className="eyebrow">Winner</span>
+          <span>
+          <span className="eyebrow">Prediction Winner</span>
           <strong>
             {expanded
               ? winner
@@ -988,8 +1055,8 @@ function ResultsWinnerCard({ standings, officialRows }) {
               <h3>{winner ? (isTie ? `Tie: ${winnerNames}` : winner.person.displayName) : "Waiting for official results"}</h3>
               <p>
                 {winner
-                  ? `Closest to the official final order, averaging ${formatScore(winner.averageMiss)} places off across ${winner.compared} ${winner.compared === 1 ? "song" : "songs"}.`
-                  : "Add official placements and scores to crown the closest ranker."}
+                ? `Closest to the official final order using prediction scores, averaging ${formatScore(winner.averageMiss)} places off across ${winner.compared} ${winner.compared === 1 ? "song" : "songs"}.`
+                  : "Add official placements and prediction scores to crown the closest ranker."}
               </p>
             </div>
           </div>
@@ -1067,10 +1134,12 @@ function PersonOrderRow({ row }) {
   );
 }
 
-function ResultScoreTable({ entries, participants, scores, averages, sort, setSort }) {
+function ResultScoreTable({ entries, participants, scores, averages, predictionAverages, sort, setSort }) {
   const [collapsed, setCollapsed] = useState(false);
-  const scoreLookup = scoreMap(scores);
+  const enjoymentLookup = scoreMap(scores, "enjoyment");
+  const predictionLookup = scoreMap(scores, "prediction");
   const averageLookup = new Map(averages.map((entry) => [entry.id, entry.average]));
+  const predictionAverageLookup = new Map(predictionAverages.map((entry) => [entry.id, entry.average]));
 
   function sortValue(entry, key) {
     if (key === "order") return entry.grandFinalOrder ?? 999;
@@ -1078,9 +1147,11 @@ function ResultScoreTable({ entries, participants, scores, averages, sort, setSo
     if (key === "artist") return entry.artist.toLowerCase();
     if (key === "song") return entry.song.toLowerCase();
     if (key === "average") return averageLookup.get(entry.id) ?? -1;
+    if (key === "predictionAverage") return predictionAverageLookup.get(entry.id) ?? -1;
     if (key.startsWith("participant:")) {
-      const participantId = key.replace("participant:", "");
-      return scoreLookup.get(`${participantId}:${entry.id}`) ?? -1;
+      const [, metric, participantId] = key.split(":");
+      const lookup = metric === "prediction" ? predictionLookup : enjoymentLookup;
+      return lookup.get(`${participantId}:${entry.id}`) ?? -1;
     }
     return "";
   }
@@ -1112,7 +1183,7 @@ function ResultScoreTable({ entries, participants, scores, averages, sort, setSo
       <div className="score-matrix-header">
         <div>
           <h3>User Score Table</h3>
-          <p>Scores are out of 12. Default is performance order.</p>
+          <p>Taste and prediction scores are both out of 12. Default is performance order.</p>
         </div>
         <button
           className="collapse-button"
@@ -1141,14 +1212,21 @@ function ResultScoreTable({ entries, participants, scores, averages, sort, setSo
                 <button type="button" onClick={() => changeSort("song")}>Song Title{sortLabel("song")}</button>
               </th>
               <th>
-                <button type="button" onClick={() => changeSort("average")}>Avg{sortLabel("average")}</button>
+                <button type="button" onClick={() => changeSort("average")}>Taste Avg{sortLabel("average")}</button>
+              </th>
+              <th>
+                <button type="button" onClick={() => changeSort("predictionAverage")}>Pred Avg{sortLabel("predictionAverage")}</button>
               </th>
               {participants.map((person) => {
-                const key = `participant:${person.id}`;
+                const key = `participant:enjoyment:${person.id}`;
+                const predictionKey = `participant:prediction:${person.id}`;
                 return (
-                  <th key={person.id}>
+                  <th key={person.id} className="dual-score-heading">
                     <button type="button" onClick={() => changeSort(key)}>
-                      {person.displayName}{sortLabel(key)}
+                      {person.displayName} Taste{sortLabel(key)}
+                    </button>
+                    <button type="button" onClick={() => changeSort(predictionKey)}>
+                      Pred{sortLabel(predictionKey)}
                     </button>
                   </th>
                 );
@@ -1163,9 +1241,18 @@ function ResultScoreTable({ entries, participants, scores, averages, sort, setSo
                 <td>{entry.artist}</td>
                 <td>{entry.song}</td>
                 <td>{averageLookup.get(entry.id) == null ? "--" : formatScore(averageLookup.get(entry.id))}</td>
+                <td>{predictionAverageLookup.get(entry.id) == null ? "--" : formatScore(predictionAverageLookup.get(entry.id))}</td>
                 {participants.map((person) => {
-                  const score = scoreLookup.get(`${person.id}:${entry.id}`);
-                  return <td key={person.id}>{score == null ? "--" : formatScore(score)}</td>;
+                  const enjoyment = enjoymentLookup.get(`${person.id}:${entry.id}`);
+                  const prediction = predictionLookup.get(`${person.id}:${entry.id}`);
+                  return (
+                    <td key={person.id}>
+                      <span className="dual-score-cell">
+                        <strong>{enjoyment == null ? "--" : formatScore(enjoyment)}</strong>
+                        <span>{prediction == null ? "--" : formatScore(prediction)}</span>
+                      </span>
+                    </td>
+                  );
                 })}
               </tr>
             ))}
@@ -1182,7 +1269,7 @@ function OfficialResultsTable({ rows, participants, officialVotes }) {
       <div className="score-matrix-header">
         <div>
           <h3>Official Eurovision Results</h3>
-          <p>Group avg is the average Group score out of 12. Group rank and player ranks compare score-derived rankings against the official place.</p>
+          <p>Prediction ranks are compared against the official place, while taste avg keeps the room's favorites visible.</p>
         </div>
         {!!officialVotes.length && (
           <span className="table-note">{officialVotes.length} country-by-country vote rows imported.</span>
@@ -1199,8 +1286,9 @@ function OfficialResultsTable({ rows, participants, officialVotes }) {
                 <th>Total</th>
                 <th>Jury</th>
                 <th>Audience</th>
-                <th>Group Avg</th>
-                <th>Group Rank</th>
+                <th>Taste Avg</th>
+                <th>Pred Avg</th>
+                <th>Pred Rank</th>
                 {participants.map((person) => (
                   <th key={person.id}>{person.displayName}</th>
                 ))}
@@ -1218,6 +1306,7 @@ function OfficialResultsTable({ rows, participants, officialVotes }) {
                   <td>{row.officialPoints ?? "--"}</td>
                   <td>{row.entry.officialJuryPoints ?? "--"}</td>
                   <td>{row.entry.officialAudiencePoints ?? "--"}</td>
+                  <td>{row.groupTasteAverage == null ? "--" : formatScore(row.groupTasteAverage)}</td>
                   <td>{row.groupAverage == null ? "--" : formatScore(row.groupAverage)}</td>
                   <td>
                     <RankComparisonChip rank={row.groupRank} delta={row.groupDelta} />
@@ -1246,15 +1335,15 @@ function RankComparisonChip({ rank, delta }) {
   return <span className="rank-chip low">#{rank}</span>;
 }
 
-function ResultsInsights({ disagreements, closestRankers, groupGaps, consensus }) {
+function ResultsInsights({ disagreements, predictionDisagreements, closestRankers, groupGaps, consensus, scoreGaps }) {
   return (
     <section className="insights-section">
       <div className="section-heading">
         <h3>Insights</h3>
-        <p>Where the Group agreed, drifted, and accidentally became Europe.</p>
+        <p>Where the Group agreed, predicted, and split taste from strategy.</p>
       </div>
       <div className="insights-grid">
-        <InsightBlock title="Biggest Disagreements" icon={Sparkles}>
+        <InsightBlock title="Biggest Taste Disagreements" icon={Sparkles}>
           {disagreements.length ? (
             disagreements.map((entry, index) => (
               <ResultLine
@@ -1268,7 +1357,21 @@ function ResultsInsights({ disagreements, closestRankers, groupGaps, consensus }
             <p className="empty-copy">No dramatic disagreements yet.</p>
           )}
         </InsightBlock>
-        <InsightBlock title="Closest To Official" icon={Award}>
+        <InsightBlock title="Prediction Disagreements" icon={BarChart3}>
+          {predictionDisagreements.length ? (
+            predictionDisagreements.map((entry, index) => (
+              <ResultLine
+                key={entry.id}
+                rank={index + 1}
+                entry={entry}
+                value={`spread ${formatScore(entry.scoreSpread)}`}
+              />
+            ))
+          ) : (
+            <p className="empty-copy">Prediction drama appears once at least two people predict a song.</p>
+          )}
+        </InsightBlock>
+        <InsightBlock title="Best Crystal Ball" icon={Award}>
           {closestRankers.length ? (
             closestRankers.slice(0, 5).map((item, index) => (
               <InsightLine
@@ -1280,10 +1383,10 @@ function ResultsInsights({ disagreements, closestRankers, groupGaps, consensus }
               />
             ))
           ) : (
-            <p className="empty-copy">Import official placements to crown the closest ranker.</p>
+            <p className="empty-copy">Import official placements to crown the closest prediction ranker.</p>
           )}
         </InsightBlock>
-        <InsightBlock title="Group vs Official Gaps" icon={BarChart3}>
+        <InsightBlock title="Prediction vs Official Gaps" icon={BarChart3}>
           {groupGaps.length ? (
             groupGaps.map((row, index) => (
               <InsightLine
@@ -1296,6 +1399,21 @@ function ResultsInsights({ disagreements, closestRankers, groupGaps, consensus }
             ))
           ) : (
             <p className="empty-copy">Official placements will reveal the Group's boldest misses.</p>
+          )}
+        </InsightBlock>
+        <InsightBlock title="Taste vs Prediction Gaps" icon={Calculator}>
+          {scoreGaps.length ? (
+            scoreGaps.map((item, index) => (
+              <InsightLine
+                key={`${item.participant.id}:${item.entry.id}`}
+                rank={index + 1}
+                title={`${item.participant.displayName}: ${item.entry.country}`}
+                detail={`${item.entry.song} by ${item.entry.artist}`}
+                value={formatTastePredictionGap(item)}
+              />
+            ))
+          ) : (
+            <p className="empty-copy">Add both scores to find the biggest head-versus-heart moments.</p>
           )}
         </InsightBlock>
         <InsightBlock title="Tightest Consensus" icon={Crown}>
@@ -1318,6 +1436,13 @@ function ResultsInsights({ disagreements, closestRankers, groupGaps, consensus }
   );
 }
 
+function formatTastePredictionGap(item) {
+  if (item.gap > 0) {
+    return `Predicted ${formatScore(item.absoluteGap)} higher than taste`;
+  }
+  return `Loved ${formatScore(item.absoluteGap)} more than predicted`;
+}
+
 function InsightBlock({ title, icon: Icon, children }) {
   return (
     <section className="insight-block">
@@ -1330,8 +1455,8 @@ function InsightBlock({ title, icon: Icon, children }) {
 function formatOfficialGap(row) {
   if (!Number.isFinite(row.groupRank)) return `Official #${row.officialRank}; Group unranked`;
   if (row.groupDelta === 0) return `Matched official #${row.officialRank}`;
-  const direction = row.groupDelta < 0 ? "overrated by Group" : "underrated by Group";
-  return `Official #${row.officialRank}; Group #${row.groupRank} (${direction})`;
+  const direction = row.groupDelta < 0 ? "predicted too high" : "predicted too low";
+  return `Official #${row.officialRank}; Pred #${row.groupRank} (${direction})`;
 }
 
 function InsightLine({ rank, title, detail, value }) {

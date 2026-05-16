@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { aggregateRankings, averageScores, finalEntries, submittedParticipantIds } from "../src/lib/aggregate.js";
+import {
+  aggregateRankings,
+  averageScores,
+  finalEntries,
+  submittedParticipantIds,
+  tastePredictionGaps
+} from "../src/lib/aggregate.js";
 
 const entries = [
   { id: "a", country: "Albania", isGrandFinalist: true, grandFinalOrder: 2 },
@@ -19,14 +25,31 @@ describe("aggregate helpers", () => {
 
   it("averages live scores", () => {
     const scores = [
-      { participantId: "p1", entryId: "a", score: 12 },
-      { participantId: "p2", entryId: "a", score: 8 },
-      { participantId: "p1", entryId: "b", score: 4 }
+      { participantId: "p1", entryId: "a", enjoymentScore: 12, predictionScore: 7 },
+      { participantId: "p2", entryId: "a", enjoymentScore: 8, predictionScore: 9 },
+      { participantId: "p1", entryId: "b", enjoymentScore: 4, predictionScore: 11 }
     ];
     const result = averageScores(entries, people, scores);
     expect(result[0].id).toBe("a");
     expect(result[0].average).toBe(10);
     expect(result[0].complete).toBe(true);
+
+    const predictions = averageScores(entries, people, scores, "prediction");
+    expect(predictions[0].id).toBe("b");
+    expect(predictions[0].average).toBe(11);
+    expect(predictions[0].complete).toBe(false);
+  });
+
+  it("finds the largest taste vs prediction gaps", () => {
+    const scores = [
+      { participantId: "p1", entryId: "a", enjoymentScore: 12, predictionScore: 3 },
+      { participantId: "p2", entryId: "b", enjoymentScore: 5, predictionScore: 9 },
+      { participantId: "p1", entryId: "c", enjoymentScore: 7 }
+    ];
+    const result = tastePredictionGaps(entries, people, scores);
+    expect(result[0].entry.id).toBe("a");
+    expect(result[0].participant.displayName).toBe("Dan");
+    expect(result[0].gap).toBe(-9);
   });
 
   it("aggregates rankings by lowest average rank", () => {

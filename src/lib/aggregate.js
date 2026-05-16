@@ -18,10 +18,17 @@ export function orderEntries(entries) {
   });
 }
 
-export function scoreMap(scores) {
+export function scoreValue(score, metric = "enjoyment") {
+  const value = metric === "prediction" ? score.predictionScore : score.enjoymentScore ?? score.score;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+export function scoreMap(scores, metric = "enjoyment") {
   const map = new Map();
   for (const score of scores) {
-    map.set(`${score.participantId}:${score.entryId}`, score.score);
+    const value = scoreValue(score, metric);
+    if (value != null) map.set(`${score.participantId}:${score.entryId}`, value);
   }
   return map;
 }
@@ -34,11 +41,12 @@ export function rankingMap(rankings) {
   return map;
 }
 
-export function averageScores(entries, participants, scores) {
+export function averageScores(entries, participants, scores, metric = "enjoyment") {
   const byEntry = new Map(entries.map((entry) => [entry.id, []]));
   for (const score of scores) {
     if (!byEntry.has(score.entryId)) continue;
-    byEntry.get(score.entryId).push(score.score);
+    const value = scoreValue(score, metric);
+    if (value != null) byEntry.get(score.entryId).push(value);
   }
   return entries
     .map((entry) => {
@@ -86,9 +94,12 @@ export function aggregateRankings(entries, participants, rankings) {
     );
 }
 
-export function biggestDisagreements(entries, participants, scores) {
+export function biggestDisagreements(entries, participants, scores, metric = "enjoyment") {
   const scoreByEntry = new Map(entries.map((entry) => [entry.id, []]));
-  for (const score of scores) scoreByEntry.get(score.entryId)?.push(score.score);
+  for (const score of scores) {
+    const value = scoreValue(score, metric);
+    if (value != null) scoreByEntry.get(score.entryId)?.push(value);
+  }
 
   return entries
     .map((entry) => {
@@ -99,6 +110,36 @@ export function biggestDisagreements(entries, participants, scores) {
     })
     .filter((entry) => entry.disagreement > 0)
     .sort((a, b) => b.disagreement - a.disagreement)
+    .slice(0, 5);
+}
+
+export function tastePredictionGaps(entries, participants, scores) {
+  const enjoymentLookup = scoreMap(scores, "enjoyment");
+  const predictionLookup = scoreMap(scores, "prediction");
+  const participantLookup = new Map(participants.map((person) => [person.id, person]));
+  const entryLookup = new Map(entries.map((entry) => [entry.id, entry]));
+
+  return scores
+    .map((score) => {
+      const enjoyment = enjoymentLookup.get(`${score.participantId}:${score.entryId}`);
+      const prediction = predictionLookup.get(`${score.participantId}:${score.entryId}`);
+      if (enjoyment == null || prediction == null) return null;
+      return {
+        entry: entryLookup.get(score.entryId),
+        participant: participantLookup.get(score.participantId),
+        enjoyment,
+        prediction,
+        gap: prediction - enjoyment,
+        absoluteGap: Math.abs(prediction - enjoyment)
+      };
+    })
+    .filter((item) => item?.entry && item?.participant && item.absoluteGap > 0)
+    .sort(
+      (a, b) =>
+        b.absoluteGap - a.absoluteGap ||
+        b.prediction - a.prediction ||
+        a.entry.country.localeCompare(b.entry.country)
+    )
     .slice(0, 5);
 }
 
