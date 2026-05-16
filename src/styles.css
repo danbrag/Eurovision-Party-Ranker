@@ -967,18 +967,18 @@ input[type="range"] {
   grid-template-rows: auto auto;
   border: 1px solid transparent;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.065);
+  background: rgba(255, 255, 255, 0.06);
   overflow: hidden;
 }
 
 .winner-standing.first {
-  border-color: rgba(255, 213, 74, 0.22);
-  background: rgba(255, 213, 74, 0.1);
+  border-color: rgba(255, 213, 74, 0.32);
+  background: rgba(255, 255, 255, 0.065);
 }
 
 .winner-standing.open {
   border-color: rgba(57, 244, 193, 0.32);
-  background: rgba(255, 255, 255, 0.075);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .winner-standing-button {
@@ -1011,7 +1011,7 @@ input[type="range"] {
   font-weight: 900;
 }
 
-.winner-standing.first span {
+.winner-standing.first .winner-standing-button > span {
   background: #ffd54a;
 }
 
@@ -1077,15 +1077,15 @@ input[type="range"] {
 }
 
 .person-order-row.exact {
-  box-shadow: inset 3px 0 0 #39f4c1;
+  box-shadow: inset 3px 0 0 #6ee7b7;
 }
 
 .person-order-row.high {
-  box-shadow: inset 3px 0 0 #ffd54a;
+  box-shadow: inset 3px 0 0 #e8b84e;
 }
 
 .person-order-row.low {
-  box-shadow: inset 3px 0 0 #ff2f9a;
+  box-shadow: inset 3px 0 0 #c85b86;
 }
 
 .person-order-rank {
@@ -1104,17 +1104,17 @@ input[type="range"] {
 
 .person-order-row.exact .person-order-rank {
   color: #080816;
-  background: #39f4c1;
+  background: #6ee7b7;
 }
 
 .person-order-row.high .person-order-rank {
-  color: #080816;
-  background: #ffd54a;
+  color: #17130a;
+  background: #e8b84e;
 }
 
 .person-order-row.low .person-order-rank {
   color: #f7f8ff;
-  background: rgba(255, 47, 154, 0.72);
+  background: #9f3f69;
 }
 
 .person-order-song {
@@ -1171,16 +1171,16 @@ input[type="range"] {
 
 .person-order-row.exact .verdict-pill {
   color: #080816;
-  background: #39f4c1;
+  background: #6ee7b7;
 }
 
 .person-order-row.high .verdict-pill {
-  color: #080816;
-  background: #ffd54a;
+  color: #17130a;
+  background: #e8b84e;
 }
 
 .person-order-row.low .verdict-pill {
-  background: rgba(255, 47, 154, 0.48);
+  background: rgba(159, 63, 105, 0.92);
 }
 
 .results-gate {
