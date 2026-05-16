@@ -1455,12 +1455,15 @@ input[type="range"] {
   font-weight: 900;
 }
 
-.dual-score-heading {
-  display: grid;
-  gap: 3px;
+.dual-score-heading button {
+  display: block;
+  width: 100%;
+  line-height: 1.08;
+  text-align: center;
 }
 
 .dual-score-heading button + button {
+  margin-top: 3px;
   color: rgba(247, 248, 255, 0.62);
   font-size: 12px;
 }
