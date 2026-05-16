@@ -687,8 +687,8 @@ function ScoreView({ entries, participant, enjoymentLookup, predictionLookup, on
           <RankingBoardList
             entries={rankedEntries}
             participantId={participant.id}
-            scoreLookup={activeLookup}
-            secondaryScoreLookup={boardMetric === "prediction" ? enjoymentLookup : predictionLookup}
+            enjoymentLookup={enjoymentLookup}
+            predictionLookup={predictionLookup}
             metric={boardMetric}
           />
         </section>
@@ -718,7 +718,7 @@ function ScoreSlider({ label, entry, metric, value, onDraft, onCommit }) {
   );
 }
 
-function RankingBoardList({ entries, participantId, scoreLookup, secondaryScoreLookup, metric }) {
+function RankingBoardList({ entries, participantId, enjoymentLookup, predictionLookup, metric }) {
   const listRef = useRef(null);
   const positions = useRef(new Map());
   const animationCleanups = useRef(new WeakMap());
@@ -774,36 +774,48 @@ function RankingBoardList({ entries, participantId, scoreLookup, secondaryScoreL
   }, [orderKey]);
 
   return (
-    <div ref={listRef} className="ranking-board-list">
-      {entries.map((entry, index) => (
-        <RankingBoardRow
-          key={entry.id}
-          entry={entry}
-          rank={index + 1}
-          score={scoreLookup.get(`${participantId}:${entry.id}`)}
-          secondaryScore={secondaryScoreLookup.get(`${participantId}:${entry.id}`)}
-          metric={metric}
-        />
-      ))}
-    </div>
+    <>
+      <div className="ranking-board-column-labels" aria-hidden="true">
+        <span>Song</span>
+        <span>Taste</span>
+        <span>Prediction</span>
+      </div>
+      <div ref={listRef} className="ranking-board-list">
+        {entries.map((entry, index) => (
+          <RankingBoardRow
+            key={entry.id}
+            entry={entry}
+            rank={index + 1}
+            enjoymentScore={enjoymentLookup.get(`${participantId}:${entry.id}`)}
+            predictionScore={predictionLookup.get(`${participantId}:${entry.id}`)}
+            metric={metric}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 
-function RankingBoardRow({ entry, rank, score, secondaryScore, metric }) {
-  const secondaryLabel = metric === "prediction" ? "Taste" : "Pred";
+function RankingBoardRow({ entry, rank, enjoymentScore, predictionScore, metric }) {
   return (
     <article className="ranking-board-row" data-rank-id={entry.id}>
       <span className="personal-rank">#{rank}</span>
-      <div>
+      <div className="ranking-board-song">
         <strong>{entry.country}</strong>
         <span>{entry.song} by {entry.artist}</span>
       </div>
-      <div className="ranking-score-pair">
-        <output title={metric === "prediction" ? "Prediction score" : "Enjoyment score"}>
-          {score == null ? "--" : formatScore(score)}
-        </output>
-        <span>{secondaryLabel} {secondaryScore == null ? "--" : formatScore(secondaryScore)}</span>
-      </div>
+      <output
+        className={cx("ranking-score-cell", metric === "enjoyment" ? "active" : "muted")}
+        title="Taste score"
+      >
+        {enjoymentScore == null ? "--" : formatScore(enjoymentScore)}
+      </output>
+      <output
+        className={cx("ranking-score-cell", "prediction", metric === "prediction" ? "active" : "muted")}
+        title="Prediction score"
+      >
+        {predictionScore == null ? "--" : formatScore(predictionScore)}
+      </output>
     </article>
   );
 }
