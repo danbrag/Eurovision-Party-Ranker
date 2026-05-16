@@ -5,6 +5,7 @@ import {
   Award,
   BarChart3,
   Calculator,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   Crown,
@@ -17,9 +18,11 @@ import {
   Settings,
   Sparkles,
   Star,
+  Target,
   Trophy,
   UserPlus,
-  Users
+  Users,
+  XCircle
 } from "lucide-react";
 import { api, browserToken } from "./api.js";
 import {
@@ -875,7 +878,7 @@ function ResultsView({ entries, participants, scores, officialVotes, allScored }
       <ViewHeader
         icon={Trophy}
         title="Scoreboards"
-        description={allScored ? "Everyone scored every finalist. Crown the Group winner." : "Live group scores update here as everyone votes."}
+        description={allScored ? "Everyone scored every finalist. Crown the Winner." : "Live group scores update here as everyone votes."}
       />
       {allScored && (
         <div className="celebration-banner">
@@ -883,7 +886,6 @@ function ResultsView({ entries, participants, scores, officialVotes, allScored }
           Everyone scored every finalist.
         </div>
       )}
-      <ResultsWinnerCard standings={analysis.closestRankers} officialCount={analysis.officialRows.length} />
       <ResultScoreTable
         entries={entries}
         participants={participants}
@@ -899,11 +901,14 @@ function ResultsView({ entries, participants, scores, officialVotes, allScored }
         groupGaps={analysis.groupGaps}
         consensus={analysis.consensus}
       />
+      <ResultsWinnerCard standings={analysis.closestRankers} officialRows={analysis.officialRows} />
     </section>
   );
 }
 
-function ResultsWinnerCard({ standings, officialCount }) {
+function ResultsWinnerCard({ standings, officialRows }) {
+  const [expanded, setExpanded] = useState(false);
+  const [openPersonId, setOpenPersonId] = useState(null);
   const winner = standings[0];
   const tiedWinners = winner
     ? standings.filter(
@@ -915,36 +920,150 @@ function ResultsWinnerCard({ standings, officialCount }) {
     : [];
   const isTie = tiedWinners.length > 1;
   const winnerNames = tiedWinners.map((item) => item.person.displayName).join(", ");
+  const officialCount = officialRows.length;
+  const activePersonId = openPersonId;
+
+  const comparisonByPerson = useMemo(() => {
+    const map = new Map();
+    for (const item of standings) {
+      const rows = officialRows
+        .map((row) => {
+          const participantRank = row.participantRanks.find(
+            (rankItem) => rankItem.person.id === item.person.id
+          );
+          return {
+            entry: row.entry,
+            officialRank: row.officialRank,
+            rank: participantRank?.rank,
+            delta: participantRank?.delta
+          };
+        })
+        .filter((row) => Number.isFinite(row.rank))
+        .sort(
+          (a, b) =>
+            a.rank - b.rank ||
+            a.officialRank - b.officialRank ||
+            a.entry.country.localeCompare(b.entry.country)
+        );
+      map.set(item.person.id, rows);
+    }
+    return map;
+  }, [officialRows, standings]);
+
+  function togglePerson(personId) {
+    setExpanded(true);
+    setOpenPersonId((current) => (current === personId ? null : personId));
+  }
 
   return (
-    <section className="winner-card">
-      <div className="winner-card-main">
-        <div className="winner-icon"><Trophy size={24} /></div>
-        <div>
-          <p className="eyebrow">Group Winner</p>
-          <h3>{winner ? (isTie ? `Tie: ${winnerNames}` : winner.person.displayName) : "Waiting for official results"}</h3>
-          <p>
-            {winner
-              ? `Closest to the official final order, averaging ${formatScore(winner.averageMiss)} places off across ${winner.compared} ${winner.compared === 1 ? "song" : "songs"}.`
-              : "Add official placements and scores to crown the closest ranker."}
-          </p>
+    <section className={cx("winner-accordion", expanded && "open")}>
+      <button
+        className="winner-accordion-toggle"
+        type="button"
+        aria-expanded={expanded}
+        aria-label={expanded ? "Hide winner" : "Reveal winner"}
+        onClick={() => setExpanded((current) => !current)}
+      >
+        <span className="winner-toggle-icon">
+          {expanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+        </span>
+        <span>
+          <span className="eyebrow">Winner</span>
+          <strong>
+            {expanded
+              ? winner
+                ? isTie
+                  ? `Tie: ${winnerNames}`
+                  : winner.person.displayName
+                : "Waiting for official results"
+              : "Reveal"}
+          </strong>
+        </span>
+        {winner && <output>{expanded ? `${formatScore(winner.averageMiss)} avg off` : "Hidden"}</output>}
+      </button>
+      <div className="winner-accordion-shell" aria-hidden={!expanded}>
+        <div className="winner-accordion-body">
+          <div className="winner-card-main">
+            <div className="winner-icon"><Trophy size={24} /></div>
+            <div>
+              <p className="eyebrow">Winner</p>
+              <h3>{winner ? (isTie ? `Tie: ${winnerNames}` : winner.person.displayName) : "Waiting for official results"}</h3>
+              <p>
+                {winner
+                  ? `Closest to the official final order, averaging ${formatScore(winner.averageMiss)} places off across ${winner.compared} ${winner.compared === 1 ? "song" : "songs"}.`
+                  : "Add official placements and scores to crown the closest ranker."}
+              </p>
+            </div>
+          </div>
+          <div className="winner-standings">
+            {standings.length ? (
+              standings.map((item, index) => {
+                const personRows = comparisonByPerson.get(item.person.id) || [];
+                const personOpen = activePersonId === item.person.id;
+                return (
+                  <article
+                    key={item.person.id}
+                    className={cx("winner-standing", index === 0 && "first", personOpen && "open")}
+                  >
+                    <button
+                      type="button"
+                      className="winner-standing-button"
+                      aria-expanded={personOpen}
+                      onClick={() => togglePerson(item.person.id)}
+                    >
+                      <span>{index + 1}</span>
+                      <strong>{item.person.displayName}</strong>
+                      <output>{item.totalMiss} off</output>
+                      <small>{item.exactMatches}/{item.compared || officialCount} exact</small>
+                    </button>
+                    <div className="person-order-shell" aria-hidden={!personOpen}>
+                      <div className="person-order-panel">
+                        <div className="person-order-summary">
+                          <span><CheckCircle2 size={15} /> {item.exactMatches} exact</span>
+                          <span><Target size={15} /> {formatScore(item.averageMiss)} avg off</span>
+                        </div>
+                        <div className="person-order-list">
+                          {personRows.length ? (
+                            personRows.map((row) => (
+                              <PersonOrderRow key={row.entry.id} row={row} />
+                            ))
+                          ) : (
+                            <p className="empty-copy">No official comparison yet.</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })
+            ) : (
+              <p className="empty-copy">No standings yet.</p>
+            )}
+          </div>
         </div>
       </div>
-      <div className="winner-standings">
-        {standings.length ? (
-          standings.slice(0, 3).map((item, index) => (
-            <article key={item.person.id} className={cx("winner-standing", index === 0 && "first")}>
-              <span>{index + 1}</span>
-              <strong>{item.person.displayName}</strong>
-              <output>{item.totalMiss} off</output>
-              <small>{item.exactMatches}/{item.compared || officialCount} exact</small>
-            </article>
-          ))
-        ) : (
-          <p className="empty-copy">No standings yet.</p>
-        )}
-      </div>
     </section>
+  );
+}
+
+function PersonOrderRow({ row }) {
+  const exact = row.delta === 0;
+  const direction = row.delta < 0 ? "high" : "low";
+  const label = exact ? "correct" : row.delta < 0 ? `${Math.abs(row.delta)} high` : `${row.delta} low`;
+
+  return (
+    <article className={cx("person-order-row", exact ? "exact" : direction)}>
+      <span className="person-order-rank">#{row.rank}</span>
+      <div>
+        <strong>{row.entry.country}</strong>
+        <span>{row.entry.song} by {row.entry.artist}</span>
+      </div>
+      <span className="official-rank-pill">Final #{row.officialRank}</span>
+      <span className="verdict-pill">
+        {exact ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+        {label}
+      </span>
+    </article>
   );
 }
 

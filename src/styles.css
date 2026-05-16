@@ -41,7 +41,10 @@ button,
 .score-row,
 .ranking-board-row,
 .result-line,
-.score-panel {
+.score-panel,
+.winner-accordion-toggle,
+.winner-standing-button,
+.person-order-row {
   transition:
     background 180ms ease,
     border-color 180ms ease,
@@ -831,19 +834,88 @@ input[type="range"] {
   font-weight: 900;
 }
 
-.winner-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.9fr);
-  gap: 12px;
-  align-items: stretch;
-  margin-bottom: 14px;
-  padding: 14px;
+.winner-accordion {
+  margin-top: 4px;
   border: 1px solid rgba(57, 244, 193, 0.36);
   border-radius: 8px;
   background:
     linear-gradient(135deg, rgba(57, 244, 193, 0.16), rgba(255, 213, 74, 0.08)),
     rgba(9, 12, 30, 0.78);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+.winner-accordion-toggle {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  padding: 14px;
+  color: #f7f8ff;
+  background: rgba(255, 255, 255, 0.04);
+  text-align: left;
+}
+
+.winner-accordion-toggle:hover,
+.winner-accordion-toggle:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+}
+
+.winner-toggle-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  color: #080816;
+  background: #ffd54a;
+}
+
+.winner-accordion-toggle .eyebrow {
+  display: block;
+  margin: 0 0 3px;
+}
+
+.winner-accordion-toggle strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(21px, 3vw, 30px);
+  line-height: 1;
+}
+
+.winner-accordion-toggle output {
+  color: #39f4c1;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.winner-accordion-shell {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 560ms cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.winner-accordion.open .winner-accordion-shell {
+  grid-template-rows: 1fr;
+}
+
+.winner-accordion-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.winner-accordion-body > .winner-card-main,
+.winner-accordion-body > .winner-standings {
+  margin: 0 14px 14px;
+}
+
+.winner-accordion-body > .winner-card-main {
+  padding-top: 4px;
 }
 
 .winner-card-main {
@@ -864,17 +936,17 @@ input[type="range"] {
   background: #ffd54a;
 }
 
-.winner-card h3,
-.winner-card p {
+.winner-accordion h3,
+.winner-accordion p {
   margin: 0;
 }
 
-.winner-card h3 {
+.winner-accordion h3 {
   font-size: clamp(28px, 4vw, 46px);
   line-height: 1;
 }
 
-.winner-card p:not(.eyebrow) {
+.winner-accordion p:not(.eyebrow) {
   margin-top: 7px;
   max-width: 720px;
   color: rgba(247, 248, 255, 0.74);
@@ -889,19 +961,40 @@ input[type="range"] {
 
 .winner-standing {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: center;
-  padding: 9px;
+  grid-template-rows: auto auto;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
 }
 
 .winner-standing.first {
   background: rgba(255, 213, 74, 0.18);
 }
 
-.winner-standing span {
+.winner-standing.open {
+  box-shadow: inset 0 0 0 1px rgba(57, 244, 193, 0.32);
+}
+
+.winner-standing-button {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  padding: 9px;
+  color: #f7f8ff;
+  background: transparent;
+  text-align: left;
+}
+
+.winner-standing-button:hover,
+.winner-standing-button:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+
+.winner-standing-button > span {
   display: grid;
   place-items: center;
   width: 32px;
@@ -916,22 +1009,163 @@ input[type="range"] {
   background: #ffd54a;
 }
 
-.winner-standing strong {
+.winner-standing-button strong {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.winner-standing output {
+.winner-standing-button output {
   color: #39f4c1;
   font-weight: 900;
 }
 
-.winner-standing small {
+.winner-standing-button small {
   grid-column: 2 / -1;
   color: rgba(247, 248, 255, 0.62);
   font-weight: 800;
+}
+
+.person-order-shell {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 520ms cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.winner-standing.open .person-order-shell {
+  grid-template-rows: 1fr;
+}
+
+.person-order-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.person-order-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 9px 8px 49px;
+}
+
+.person-order-summary span,
+.verdict-pill,
+.official-rank-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-radius: 999px;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.person-order-summary span {
+  color: #080816;
+  background: rgba(57, 244, 193, 0.86);
+}
+
+.person-order-list {
+  display: grid;
+  gap: 6px;
+  padding: 0 9px 9px 49px;
+}
+
+.person-order-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(8, 8, 22, 0.42);
+}
+
+.person-order-row.exact {
+  border-color: rgba(57, 244, 193, 0.5);
+  background: rgba(57, 244, 193, 0.14);
+}
+
+.person-order-row.high {
+  border-color: rgba(255, 213, 74, 0.34);
+  background: rgba(255, 213, 74, 0.1);
+}
+
+.person-order-row.low {
+  border-color: rgba(255, 47, 154, 0.34);
+  background: rgba(255, 47, 154, 0.1);
+}
+
+.person-order-rank {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 34px;
+  border-radius: 8px;
+  color: #080816;
+  background: #f7f8ff;
+  font-weight: 900;
+}
+
+.person-order-row.exact .person-order-rank {
+  background: #39f4c1;
+}
+
+.person-order-row.high .person-order-rank {
+  background: #ffd54a;
+}
+
+.person-order-row.low .person-order-rank {
+  color: #f7f8ff;
+  background: #ff2f9a;
+}
+
+.person-order-row strong,
+.person-order-row span {
+  display: block;
+}
+
+.person-order-row div {
+  min-width: 0;
+}
+
+.person-order-row div span {
+  margin-top: 2px;
+  overflow: hidden;
+  color: rgba(247, 248, 255, 0.68);
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.official-rank-pill {
+  color: #f7f8ff;
+  background: rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+}
+
+.verdict-pill {
+  color: #f7f8ff;
+  background: rgba(255, 255, 255, 0.12);
+  white-space: nowrap;
+}
+
+.person-order-row.exact .verdict-pill {
+  color: #080816;
+  background: #39f4c1;
+}
+
+.person-order-row.high .verdict-pill {
+  color: #080816;
+  background: #ffd54a;
+}
+
+.person-order-row.low .verdict-pill {
+  background: rgba(255, 47, 154, 0.48);
 }
 
 .results-gate {

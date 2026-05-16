@@ -119,6 +119,13 @@ git pull
 docker compose up -d --build
 ```
 
+Or use the included deploy script:
+
+```bash
+cd ~/apps/eurovision-2026
+./deploy.sh
+```
+
 Your app data survives rebuilds because SQLite lives in the named Docker volume `eurovision-data`.
 
 ## Useful Commands
