@@ -6,10 +6,10 @@ services:
     environment:
       PORT: "3000"
       DATA_DIR: /data
-      ROOM_CODE: "${ROOM_CODE:-ILOVEDAN}"
-      ADMIN_PIN: "${ADMIN_PIN:?Set ADMIN_PIN in .env before deployment}"
-      OFFICIAL_WATCH_ENABLED: "${OFFICIAL_WATCH_ENABLED:-false}"
-      OFFICIAL_WATCH_INTERVAL_MS: "${OFFICIAL_WATCH_INTERVAL_MS:-45000}"
+      ROOM_CODE: ILOVEDAN
+      ADMIN_PIN: "1234"
+      OFFICIAL_WATCH_ENABLED: "false"
+      OFFICIAL_WATCH_INTERVAL_MS: "45000"
     volumes:
       - eurovision-data:/data
     ports:
