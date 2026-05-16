@@ -721,7 +721,7 @@ function ScoreSlider({ label, entry, metric, value, onDraft, onCommit }) {
 function RankingBoardList({ entries, participantId, enjoymentLookup, predictionLookup, metric }) {
   const listRef = useRef(null);
   const positions = useRef(new Map());
-  const animationCleanups = useRef(new WeakMap());
+  const rowAnimations = useRef(new WeakMap());
   const orderKey = entries.map((entry) => entry.id).join("|");
 
   useLayoutEffect(() => {
@@ -735,36 +735,26 @@ function RankingBoardList({ entries, participantId, enjoymentLookup, predictionL
       if (previous) {
         const deltaY = previous.top - rect.top;
         if (Math.abs(deltaY) > 1) {
-          const previousCleanup = animationCleanups.current.get(row);
-          if (previousCleanup) previousCleanup();
+          const previousAnimation = rowAnimations.current.get(row);
+          if (previousAnimation) previousAnimation.cancel();
 
-          row.style.transition = "none";
-          row.style.transform = `translate3d(0, ${deltaY}px, 0)`;
-          row.style.opacity = "0.96";
           row.style.zIndex = "2";
-          row.getBoundingClientRect();
-
-          let frame = 0;
-          const cleanup = () => {
-            if (frame) cancelAnimationFrame(frame);
-            row.style.transition = "";
-            row.style.transform = "";
-            row.style.opacity = "";
-            row.style.zIndex = "";
-            row.removeEventListener("transitionend", onTransitionEnd);
-            animationCleanups.current.delete(row);
-          };
-          const onTransitionEnd = (event) => {
-            if (event.propertyName === "transform") cleanup();
-          };
-          animationCleanups.current.set(row, cleanup);
-          row.addEventListener("transitionend", onTransitionEnd);
-
-          frame = requestAnimationFrame(() => {
-            row.style.transition =
-              "transform 1200ms cubic-bezier(0.19, 1, 0.22, 1), opacity 650ms ease";
-            row.style.transform = "translate3d(0, 0, 0)";
-            row.style.opacity = "1";
+          const animation = row.animate(
+            [
+              { transform: `translate3d(0, ${deltaY}px, 0)` },
+              { transform: "translate3d(0, 0, 0)" }
+            ],
+            {
+              duration: 900,
+              easing: "cubic-bezier(0.19, 1, 0.22, 1)"
+            }
+          );
+          rowAnimations.current.set(row, animation);
+          animation.finished.catch(() => {}).then(() => {
+            if (rowAnimations.current.get(row) === animation) {
+              row.style.zIndex = "";
+              rowAnimations.current.delete(row);
+            }
           });
         }
       }

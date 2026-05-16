@@ -626,8 +626,7 @@ a {
   text-align: center;
   transition:
     color 180ms ease,
-    opacity 180ms ease,
-    transform 180ms ease;
+    opacity 180ms ease;
 }
 
 .ranking-score-cell.prediction {
@@ -636,7 +635,6 @@ a {
 
 .ranking-score-cell.active {
   opacity: 1;
-  transform: scale(1.04);
 }
 
 .ranking-score-cell.muted {
@@ -661,7 +659,7 @@ a {
 }
 
 .score-input-row {
-  grid-template-columns: 44px 74px minmax(180px, 1fr) minmax(250px, 330px);
+  grid-template-columns: 44px 110px minmax(180px, 1fr) minmax(250px, 330px);
   gap: 16px;
 }
 
@@ -709,7 +707,7 @@ a {
 
 .score-thumb {
   position: relative;
-  width: 64px;
+  width: 96px;
   aspect-ratio: 4 / 3;
   overflow: hidden;
   border-radius: 8px;
@@ -1931,11 +1929,11 @@ input {
   }
 
   .score-row {
-    grid-template-columns: 44px 66px minmax(0, 1fr);
+    grid-template-columns: 44px 96px minmax(0, 1fr);
   }
 
   .score-input-row {
-    grid-template-columns: 44px 66px minmax(0, 1fr);
+    grid-template-columns: 44px 96px minmax(0, 1fr);
   }
 
   .score-controls {
