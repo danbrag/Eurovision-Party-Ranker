@@ -1,7 +1,7 @@
 {
   "name": "eurovision-2026-rankings",
   "version": "0.1.0",
-  "private": true,
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=24"
@@ -32,6 +32,6 @@
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.2",
     "vite": "^6.0.7",
-    "vitest": "^2.1.8"
+    "vitest": "^4.1.6"
   }
 }

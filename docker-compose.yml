@@ -3,16 +3,16 @@ services:
     build: .
     container_name: eurovision-2026
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      PORT: "3000"
-      ROOM_CODE: "${ROOM_CODE:-ILOVEDAN}"
-      ADMIN_PIN: "${ADMIN_PIN:?Set ADMIN_PIN in .env before deployment}"
-      OFFICIAL_WATCH_ENABLED: "false"
-      OFFICIAL_WATCH_INTERVAL_MS: "45000"
+      NODE_ENV: production
+      DATA_DIR: "${DATA_DIR:-/data}"
+      PORT: "${PORT:-3000}"
     volumes:
       - eurovision-data:/data
     ports:
-      - "127.0.0.1:${HOST_PORT:-3000}:3000"
+      - "127.0.0.1:${HOST_PORT:-3000}:${PORT:-3000}"
 
 volumes:
   eurovision-data:

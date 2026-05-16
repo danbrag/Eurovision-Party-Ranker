@@ -1,6 +1,8 @@
 # Eurovision 2026 Rankings
 
-A private, mobile-first watch-party app for previewing Eurovision 2026 songs, keeping personal quarter-point taste and judges rankings during the show, deriving the house ranking from everyone's scores, and tracking official Eurovision results.
+An unofficial, mobile-first watch-party app for previewing Eurovision 2026 songs, keeping personal quarter-point taste and judges rankings during the show, deriving the house ranking from everyone's scores, and tracking official Eurovision results.
+
+This project is not affiliated with, endorsed by, or sponsored by the Eurovision Song Contest, the European Broadcasting Union, or any participating broadcaster. Keep any private deployment settings in `.env`; do not commit that file.
 
 ## Why It Works This Way
 
@@ -17,11 +19,11 @@ Official Eurovision tallies are separate from house scores. Taste scores answer 
 ## How To Use
 
 1. Start the app and open `http://localhost:5173`.
-2. Join the room with the room code, default `ILOVEDAN`, and your display name.
+2. Join the room with the configured room code, default `EUROVISION`, and your display name.
 3. Use `Preview` before the show to read each artist description in running order. Tap `Play` on a row to expand the inline YouTube player.
 4. Use `My Rankings` during the show. Score each song from `0` to `12` in performance order on the left for taste and judges; the ranking board on the right can flip between both rankings.
 5. Use `Results` to see the score-derived average rankings, the sortable user score table, taste-vs-judges insights, and imported or manually entered official Eurovision results.
-6. Use `Admin` for finals-night maintenance: official result import, watcher toggle, room reset, manual official score entry, and CSV/JSON exports. Admin is PIN-protected; the local default PIN is `1234`.
+6. Use `Admin` for finals-night maintenance: official result import, watcher toggle, room reset, manual official score entry, and CSV/JSON exports. Admin is PIN-protected.
 
 ## Entering Official Tallies
 
@@ -42,12 +44,13 @@ The database can store country-by-country vote rows imported by the watcher/impo
 ## Local Development
 
 ```bash
+cp .env.example .env
 npm install
 npm run import:data
 npm run dev
 ```
 
-Open `http://localhost:5173`. The default room code is `ILOVEDAN`; the default admin PIN is `1234`.
+Open `http://localhost:5173`. For local development only, the server falls back to room code `EUROVISION` and admin PIN `1234` if `.env` does not set them.
 
 Useful commands:
 
@@ -64,13 +67,28 @@ Quick start:
 
 ```bash
 cp .env.example .env
-# Edit .env and set ADMIN_PIN.
+# Edit .env and set a private ADMIN_PIN.
 docker compose up -d --build
 ```
 
 Reverse proxy your domain to `127.0.0.1:3000`. A Caddy example is included in `Caddyfile.example`.
 
 Runtime data lives in the Docker volume `eurovision-data`, so rebuilds do not wipe scores.
+
+## Environment
+
+Docker Compose reads runtime settings from `.env` through `env_file`. Production startup fails if `ADMIN_PIN` is unset or left as a known placeholder.
+
+| Variable | Purpose |
+| --- | --- |
+| `ROOM_CODE` | Shared room code shown to participants. |
+| `ADMIN_PIN` | Private admin unlock PIN. Required for production. |
+| `PORT` | Port the Node server listens on inside the container. |
+| `HOST_PORT` | Local host port bound by Docker Compose. |
+| `DATA_DIR` | Directory for the SQLite database. Use `/data` in Docker. |
+| `MAX_PARTICIPANTS` | Maximum number of room participants. |
+| `OFFICIAL_WATCH_ENABLED` | Enables the best-effort official-results watcher when `true`. |
+| `OFFICIAL_WATCH_INTERVAL_MS` | Poll interval for the watcher. |
 
 ## Data Refresh
 
@@ -81,3 +99,7 @@ npm run import:data
 ```
 
 In production, use the admin tab to run a one-off official result pull or start the best-effort watcher. The watcher polls official Eurovision result pages and broadcasts changes to connected browsers, but manual official score entry remains the dependable fallback for finals night.
+
+## License
+
+MIT. See `LICENSE`.

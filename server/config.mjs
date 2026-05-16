@@ -1,4 +1,11 @@
+import fs from "node:fs";
 import path from "node:path";
+import process from "node:process";
+
+const envPath = path.join(process.cwd(), ".env");
+if (fs.existsSync(envPath)) {
+  process.loadEnvFile(envPath);
+}
 
 export const EVENT = {
   year: 2026,
@@ -15,10 +22,19 @@ export const EVENT = {
     "https://www.eurovision.com/eurovision-song-contest/vienna-2026/vienna-2026-second-semi-final/"
 };
 
+const isProduction = process.env.NODE_ENV === "production";
+const defaultAdminPin = isProduction ? "" : "1234";
+const adminPin = String(process.env.ADMIN_PIN || defaultAdminPin).trim();
+const unsafeProductionPins = new Set(["", "1234", "change-this-before-deploying", "use-a-real-private-pin"]);
+
+if (isProduction && unsafeProductionPins.has(adminPin)) {
+  throw new Error("Set a private ADMIN_PIN in .env before starting the production server.");
+}
+
 export const config = {
   port: Number(process.env.PORT || 3000),
-  roomCode: (process.env.ROOM_CODE || "ILOVEDAN").trim().toUpperCase(),
-  adminPin: process.env.ADMIN_PIN || "1234",
+  roomCode: (process.env.ROOM_CODE || "EUROVISION").trim().toUpperCase(),
+  adminPin,
   dataDir: process.env.DATA_DIR || path.join(process.cwd(), ".local-data"),
   maxParticipants: Math.max(1, Number(process.env.MAX_PARTICIPANTS || 6) || 6),
   watcherEnabled: process.env.OFFICIAL_WATCH_ENABLED === "true",

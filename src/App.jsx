@@ -1964,7 +1964,7 @@ function AdminView({ entries, state, setState, setConfig, setError, config }) {
               value={adminPin}
               onChange={(event) => setAdminPin(event.target.value)}
               type="password"
-              placeholder="Default: 1234"
+              placeholder="Enter admin PIN"
               autoComplete="current-password"
             />
           </label>

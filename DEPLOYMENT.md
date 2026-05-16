@@ -55,14 +55,17 @@ nano .env
 Set at least `ADMIN_PIN` to something private:
 
 ```bash
-ROOM_CODE=ILOVEDAN
-ADMIN_PIN=use-a-real-private-pin
+ROOM_CODE=EUROVISION
+ADMIN_PIN=
+PORT=3000
 HOST_PORT=3000
+DATA_DIR=/data
+MAX_PARTICIPANTS=6
 OFFICIAL_WATCH_ENABLED=false
 OFFICIAL_WATCH_INTERVAL_MS=45000
 ```
 
-The `.env` file is ignored by Git so your admin PIN does not get committed.
+Set `ADMIN_PIN` to a value that is not shared publicly. The `.env` file is ignored by Git so your admin PIN does not get committed. Docker Compose passes these values into the container through `env_file`, and the production server refuses to start if `ADMIN_PIN` is missing or left as a known placeholder.
 
 ## 4. Start The App
 
