@@ -1429,7 +1429,7 @@ input[type="range"] {
 .score-matrix td:nth-child(6),
 .score-matrix th:nth-child(n + 7),
 .score-matrix td:nth-child(n + 7) {
-  width: 78px;
+  width: 96px;
 }
 
 .score-matrix td:nth-child(2),

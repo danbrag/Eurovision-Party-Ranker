@@ -462,10 +462,10 @@ export function setScore(db, { roomCode, participantId, browserToken, entryId, s
   );
   const nextPrediction = validateScoreValue(
     predictionScore ?? (scoreType === "prediction" ? score : null),
-    "Prediction"
+    "Judges"
   );
   if (nextEnjoyment == null && nextPrediction == null) {
-    throw Object.assign(new Error("Pick an enjoyment or prediction score to save."), { status: 400 });
+    throw Object.assign(new Error("Pick an enjoyment or judges score to save."), { status: 400 });
   }
   const exists = db.prepare("SELECT 1 FROM entries WHERE id = ?").get(entryId);
   if (!exists) throw Object.assign(new Error("Unknown entry."), { status: 404 });

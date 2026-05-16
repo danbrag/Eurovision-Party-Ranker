@@ -651,7 +651,7 @@ function ScoreView({ entries, participant, enjoymentLookup, predictionLookup, on
                       onCommit={commitScore}
                     />
                     <ScoreSlider
-                      label="Prediction"
+                      label="Judges"
                       entry={entry}
                       metric="prediction"
                       value={predictionScore}
@@ -670,7 +670,7 @@ function ScoreView({ entries, participant, enjoymentLookup, predictionLookup, on
             <div className="segmented-control" aria-label="Ranking board score lens">
               {[
                 ["enjoyment", "Taste"],
-                ["prediction", "Prediction"]
+                ["prediction", "Judges"]
               ].map(([metric, label]) => (
                 <button
                   key={metric}
@@ -768,7 +768,7 @@ function RankingBoardList({ entries, participantId, enjoymentLookup, predictionL
       <div className="ranking-board-column-labels" aria-hidden="true">
         <span>Song</span>
         <span>Taste</span>
-        <span>Prediction</span>
+        <span>Judges</span>
       </div>
       <div ref={listRef} className="ranking-board-list">
         {entries.map((entry, index) => (
@@ -802,7 +802,7 @@ function RankingBoardRow({ entry, rank, enjoymentScore, predictionScore, metric 
       </output>
       <output
         className={cx("ranking-score-cell", "prediction", metric === "prediction" ? "active" : "muted")}
-        title="Prediction score"
+        title="Judges score"
       >
         {predictionScore == null ? "--" : formatScore(predictionScore)}
       </output>
@@ -954,12 +954,12 @@ function ResultsView({ entries, participants, scores, officialVotes, allScored }
       <ViewHeader
         icon={Trophy}
         title="Scoreboards"
-        description={allScored ? "Everyone scored taste and prediction for every finalist. Crown the Winner." : "Live taste scores and prediction scores update here as everyone votes."}
+        description={allScored ? "Everyone scored taste and judges for every finalist. Crown the Winner." : "Live taste scores and judges scores update here as everyone votes."}
       />
       {allScored && (
         <div className="celebration-banner">
           <PartyPopper size={20} />
-          Everyone scored taste and prediction for every finalist.
+          Everyone scored taste and judges for every finalist.
         </div>
       )}
       <ResultScoreTable
@@ -1047,7 +1047,7 @@ function ResultsWinnerCard({ standings, officialRows }) {
           {expanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
         </span>
           <span>
-          <span className="eyebrow">Prediction Winner</span>
+          <span className="eyebrow">Judges Winner</span>
           <strong>
             {expanded
               ? winner
@@ -1068,8 +1068,8 @@ function ResultsWinnerCard({ standings, officialRows }) {
               <h3>{winner ? (isTie ? `Tie: ${winnerNames}` : winner.person.displayName) : "Waiting for official results"}</h3>
               <p>
                 {winner
-                ? `Closest to the official final order using prediction scores, averaging ${formatScore(winner.averageMiss)} places off across ${winner.compared} ${winner.compared === 1 ? "song" : "songs"}.`
-                  : "Add official placements and prediction scores to crown the closest ranker."}
+                ? `Closest to the official final order using judges scores, averaging ${formatScore(winner.averageMiss)} places off across ${winner.compared} ${winner.compared === 1 ? "song" : "songs"}.`
+                  : "Add official placements and judges scores to crown the closest ranker."}
               </p>
             </div>
           </div>
@@ -1097,7 +1097,7 @@ function ResultsWinnerCard({ standings, officialRows }) {
                     <div className="person-order-shell" aria-hidden={!personOpen}>
                       <div className="person-order-panel">
                         <div className="person-order-header">
-                          <span>Predicted</span>
+                          <span>Judges</span>
                           <span>Song</span>
                           <span>Final</span>
                           <span>Result</span>
@@ -1196,7 +1196,7 @@ function ResultScoreTable({ entries, participants, scores, averages, predictionA
       <div className="score-matrix-header">
         <div>
           <h3>User Score Table</h3>
-          <p>Taste and prediction scores are both out of 12. Default is performance order.</p>
+          <p>Taste and judges scores are both out of 12. Default is performance order.</p>
         </div>
         <button
           className="collapse-button"
@@ -1228,7 +1228,7 @@ function ResultScoreTable({ entries, participants, scores, averages, predictionA
                 <button type="button" onClick={() => changeSort("average")}>Taste Avg{sortLabel("average")}</button>
               </th>
               <th>
-                <button type="button" onClick={() => changeSort("predictionAverage")}>Pred Avg{sortLabel("predictionAverage")}</button>
+                <button type="button" onClick={() => changeSort("predictionAverage")}>Judges Avg{sortLabel("predictionAverage")}</button>
               </th>
               {participants.map((person) => {
                 const key = `participant:enjoyment:${person.id}`;
@@ -1239,7 +1239,7 @@ function ResultScoreTable({ entries, participants, scores, averages, predictionA
                       {person.displayName} Taste{sortLabel(key)}
                     </button>
                     <button type="button" onClick={() => changeSort(predictionKey)}>
-                      Pred{sortLabel(predictionKey)}
+                      Judges{sortLabel(predictionKey)}
                     </button>
                   </th>
                 );
@@ -1282,7 +1282,7 @@ function OfficialResultsTable({ rows, participants, officialVotes }) {
       <div className="score-matrix-header">
         <div>
           <h3>Official Eurovision Results</h3>
-          <p>Prediction ranks are compared against the official place, while taste avg keeps the room's favorites visible.</p>
+          <p>Judges ranks are compared against the official place, while taste avg keeps the room's favorites visible.</p>
         </div>
         {!!officialVotes.length && (
           <span className="table-note">{officialVotes.length} country-by-country vote rows imported.</span>
@@ -1300,8 +1300,8 @@ function OfficialResultsTable({ rows, participants, officialVotes }) {
                 <th>Jury</th>
                 <th>Audience</th>
                 <th>Taste Avg</th>
-                <th>Pred Avg</th>
-                <th>Pred Rank</th>
+                <th>Judges Avg</th>
+                <th>Judges Rank</th>
                 {participants.map((person) => (
                   <th key={person.id}>{person.displayName}</th>
                 ))}
@@ -1353,7 +1353,7 @@ function ResultsInsights({ disagreements, predictionDisagreements, closestRanker
     <section className="insights-section">
       <div className="section-heading">
         <h3>Insights</h3>
-        <p>Where the Group agreed, predicted, and split taste from strategy.</p>
+        <p>Where the Group agreed, judged, and split taste from strategy.</p>
       </div>
       <div className="insights-grid">
         <InsightBlock title="Biggest Taste Disagreements" icon={Sparkles}>
@@ -1370,7 +1370,7 @@ function ResultsInsights({ disagreements, predictionDisagreements, closestRanker
             <p className="empty-copy">No dramatic disagreements yet.</p>
           )}
         </InsightBlock>
-        <InsightBlock title="Prediction Disagreements" icon={BarChart3}>
+        <InsightBlock title="Judges Disagreements" icon={BarChart3}>
           {predictionDisagreements.length ? (
             predictionDisagreements.map((entry, index) => (
               <ResultLine
@@ -1381,7 +1381,7 @@ function ResultsInsights({ disagreements, predictionDisagreements, closestRanker
               />
             ))
           ) : (
-            <p className="empty-copy">Prediction drama appears once at least two people predict a song.</p>
+            <p className="empty-copy">Judges drama appears once at least two people score a song.</p>
           )}
         </InsightBlock>
         <InsightBlock title="Best Crystal Ball" icon={Award}>
@@ -1396,10 +1396,10 @@ function ResultsInsights({ disagreements, predictionDisagreements, closestRanker
               />
             ))
           ) : (
-            <p className="empty-copy">Import official placements to crown the closest prediction ranker.</p>
+            <p className="empty-copy">Import official placements to crown the closest judges ranker.</p>
           )}
         </InsightBlock>
-        <InsightBlock title="Prediction vs Official Gaps" icon={BarChart3}>
+        <InsightBlock title="Judges vs Official Gaps" icon={BarChart3}>
           {groupGaps.length ? (
             groupGaps.map((row, index) => (
               <InsightLine
@@ -1414,7 +1414,7 @@ function ResultsInsights({ disagreements, predictionDisagreements, closestRanker
             <p className="empty-copy">Official placements will reveal the Group's boldest misses.</p>
           )}
         </InsightBlock>
-        <InsightBlock title="Taste vs Prediction Gaps" icon={Calculator}>
+        <InsightBlock title="Taste vs Judges Gaps" icon={Calculator}>
           {scoreGaps.length ? (
             scoreGaps.map((item, index) => (
               <InsightLine
@@ -1451,9 +1451,9 @@ function ResultsInsights({ disagreements, predictionDisagreements, closestRanker
 
 function formatTastePredictionGap(item) {
   if (item.gap > 0) {
-    return `Predicted ${formatScore(item.absoluteGap)} higher than taste`;
+    return `Judges score ${formatScore(item.absoluteGap)} higher than taste`;
   }
-  return `Loved ${formatScore(item.absoluteGap)} more than predicted`;
+  return `Loved ${formatScore(item.absoluteGap)} more than judges score`;
 }
 
 function InsightBlock({ title, icon: Icon, children }) {
@@ -1468,8 +1468,8 @@ function InsightBlock({ title, icon: Icon, children }) {
 function formatOfficialGap(row) {
   if (!Number.isFinite(row.groupRank)) return `Official #${row.officialRank}; Group unranked`;
   if (row.groupDelta === 0) return `Matched official #${row.officialRank}`;
-  const direction = row.groupDelta < 0 ? "predicted too high" : "predicted too low";
-  return `Official #${row.officialRank}; Pred #${row.groupRank} (${direction})`;
+  const direction = row.groupDelta < 0 ? "judges too high" : "judges too low";
+  return `Official #${row.officialRank}; Judges #${row.groupRank} (${direction})`;
 }
 
 function InsightLine({ rank, title, detail, value }) {
