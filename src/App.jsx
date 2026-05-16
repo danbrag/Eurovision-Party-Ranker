@@ -18,7 +18,6 @@ import {
   Settings,
   Sparkles,
   Star,
-  Target,
   Trophy,
   UserPlus,
   Users,
@@ -983,10 +982,9 @@ function ResultsWinnerCard({ standings, officialRows }) {
       </button>
       <div className="winner-accordion-shell" aria-hidden={!expanded}>
         <div className="winner-accordion-body">
-          <div className="winner-card-main">
-            <div className="winner-icon"><Trophy size={24} /></div>
+          <div className="winner-detail-summary">
+            <div className="winner-icon"><Trophy size={22} /></div>
             <div>
-              <p className="eyebrow">Winner</p>
               <h3>{winner ? (isTie ? `Tie: ${winnerNames}` : winner.person.displayName) : "Waiting for official results"}</h3>
               <p>
                 {winner
@@ -1018,9 +1016,11 @@ function ResultsWinnerCard({ standings, officialRows }) {
                     </button>
                     <div className="person-order-shell" aria-hidden={!personOpen}>
                       <div className="person-order-panel">
-                        <div className="person-order-summary">
-                          <span><CheckCircle2 size={15} /> {item.exactMatches} exact</span>
-                          <span><Target size={15} /> {formatScore(item.averageMiss)} avg off</span>
+                        <div className="person-order-header">
+                          <span>Predicted</span>
+                          <span>Song</span>
+                          <span>Final</span>
+                          <span>Result</span>
                         </div>
                         <div className="person-order-list">
                           {personRows.length ? (
@@ -1049,12 +1049,12 @@ function ResultsWinnerCard({ standings, officialRows }) {
 function PersonOrderRow({ row }) {
   const exact = row.delta === 0;
   const direction = row.delta < 0 ? "high" : "low";
-  const label = exact ? "correct" : row.delta < 0 ? `${Math.abs(row.delta)} high` : `${row.delta} low`;
+  const label = exact ? "Correct" : row.delta < 0 ? `${Math.abs(row.delta)} high` : `${row.delta} low`;
 
   return (
     <article className={cx("person-order-row", exact ? "exact" : direction)}>
       <span className="person-order-rank">#{row.rank}</span>
-      <div>
+      <div className="person-order-song">
         <strong>{row.entry.country}</strong>
         <span>{row.entry.song} by {row.entry.artist}</span>
       </div>
