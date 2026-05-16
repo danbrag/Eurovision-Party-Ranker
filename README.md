@@ -77,7 +77,7 @@ Runtime data lives in the Docker volume `eurovision-data`, so rebuilds do not wi
 
 ## Environment
 
-Docker Compose reads runtime settings from `.env` through `env_file`. Production startup fails if `ADMIN_PIN` is unset or left as a known placeholder.
+Docker Compose reads runtime settings from `.env` through `env_file`. Production admin actions are disabled if `ADMIN_PIN` is unset or left as a known placeholder.
 
 | Variable | Purpose |
 | --- | --- |

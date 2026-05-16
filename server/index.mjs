@@ -42,6 +42,10 @@ function asyncRoute(handler) {
 }
 
 function requireAdmin(req) {
+  if (!config.adminPin) {
+    throw Object.assign(new Error("ADMIN_PIN is not configured on the server."), { status: 503 });
+  }
+
   if (req.body?.adminPin !== config.adminPin) {
     throw Object.assign(new Error("Invalid admin PIN."), { status: 401 });
   }
