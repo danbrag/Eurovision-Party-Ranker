@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import confetti from "canvas-confetti";
 import {
@@ -12,8 +12,10 @@ import {
   Download,
   Eye,
   Lock,
+  Minus,
   Music2,
   PartyPopper,
+  Plus,
   Play,
   RefreshCw,
   Settings,
@@ -143,6 +145,12 @@ function rankEntriesByScore(entries, getScore) {
 function rankDelta(rank, officialRank) {
   if (!Number.isFinite(rank) || !Number.isFinite(officialRank)) return null;
   return rank - officialRank;
+}
+
+function normalizeScore(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Math.min(12, Math.max(0, Math.round(number * 4) / 4));
 }
 
 function youtubeEmbedUrl(url) {
@@ -566,7 +574,23 @@ function ScoreView({ entries, participant, enjoymentLookup, predictionLookup, on
   const [draftScores, setDraftScores] = useState({});
   const [boardMetric, setBoardMetric] = useState("enjoyment");
   const pendingScores = useRef(new Map());
-  const activeLookup = boardMetric === "prediction" ? predictionLookup : enjoymentLookup;
+  const displayEnjoymentLookup = useMemo(() => {
+    const next = new Map(enjoymentLookup);
+    for (const [key, value] of Object.entries(draftScores)) {
+      const [metric, entryId] = key.split(":");
+      if (metric === "enjoyment") next.set(`${participant.id}:${entryId}`, value);
+    }
+    return next;
+  }, [draftScores, enjoymentLookup, participant.id]);
+  const displayPredictionLookup = useMemo(() => {
+    const next = new Map(predictionLookup);
+    for (const [key, value] of Object.entries(draftScores)) {
+      const [metric, entryId] = key.split(":");
+      if (metric === "prediction") next.set(`${participant.id}:${entryId}`, value);
+    }
+    return next;
+  }, [draftScores, participant.id, predictionLookup]);
+  const activeLookup = boardMetric === "prediction" ? displayPredictionLookup : displayEnjoymentLookup;
   const rankedEntries = useMemo(
     () =>
       [...entries].sort((a, b) => {
@@ -690,6 +714,8 @@ function ScoreView({ entries, participant, enjoymentLookup, predictionLookup, on
             participantId={participant.id}
             enjoymentLookup={enjoymentLookup}
             predictionLookup={predictionLookup}
+            displayEnjoymentLookup={displayEnjoymentLookup}
+            displayPredictionLookup={displayPredictionLookup}
             metric={boardMetric}
           />
         </section>
@@ -699,27 +725,64 @@ function ScoreView({ entries, participant, enjoymentLookup, predictionLookup, on
 }
 
 function ScoreSlider({ label, entry, metric, value, onDraft, onCommit }) {
+  const inputId = useId();
+  const step = 0.25;
+
+  function update(value) {
+    const nextValue = normalizeScore(value);
+    onDraft(entry.id, metric, nextValue);
+    onCommit(entry.id, metric, nextValue);
+  }
+
   return (
-    <label className={cx("score-controls", metric === "prediction" && "prediction")}>
-      <span>{label}</span>
-      <output>{formatScore(value)}</output>
+    <div className={cx("score-controls", metric === "prediction" && "prediction")}>
+      <label htmlFor={inputId}>{label}</label>
+      <div className="score-stepper">
+        <button
+          type="button"
+          onClick={() => update(value - step)}
+          disabled={value <= 0}
+          aria-label={`Decrease ${label} score for ${formatEntry(entry)}`}
+        >
+          <Minus size={16} />
+        </button>
+        <output htmlFor={inputId}>{formatScore(value)}</output>
+        <button
+          type="button"
+          onClick={() => update(value + step)}
+          disabled={value >= 12}
+          aria-label={`Increase ${label} score for ${formatEntry(entry)}`}
+        >
+          <Plus size={16} />
+        </button>
+      </div>
       <input
+        id={inputId}
         type="range"
         min="0"
         max="12"
         step="0.25"
         value={value}
-        onChange={(event) => onDraft(entry.id, metric, Number(event.target.value))}
+        onChange={(event) => onDraft(entry.id, metric, normalizeScore(event.target.value))}
         onPointerUp={(event) => onCommit(entry.id, metric, Number(event.currentTarget.value))}
+        onTouchEnd={(event) => onCommit(entry.id, metric, Number(event.currentTarget.value))}
         onKeyUp={(event) => onCommit(entry.id, metric, Number(event.currentTarget.value))}
         onBlur={(event) => onCommit(entry.id, metric, Number(event.currentTarget.value))}
         aria-label={`${label} score for ${formatEntry(entry)}`}
       />
-    </label>
+    </div>
   );
 }
 
-function RankingBoardList({ entries, participantId, enjoymentLookup, predictionLookup, metric }) {
+function RankingBoardList({
+  entries,
+  participantId,
+  enjoymentLookup,
+  predictionLookup,
+  displayEnjoymentLookup,
+  displayPredictionLookup,
+  metric
+}) {
   const listRef = useRef(null);
   const positions = useRef(new Map());
   const rowAnimations = useRef(new WeakMap());
@@ -777,8 +840,8 @@ function RankingBoardList({ entries, participantId, enjoymentLookup, predictionL
             key={entry.id}
             entry={entry}
             rank={index + 1}
-            enjoymentScore={enjoymentLookup.get(`${participantId}:${entry.id}`)}
-            predictionScore={predictionLookup.get(`${participantId}:${entry.id}`)}
+            enjoymentScore={(displayEnjoymentLookup || enjoymentLookup).get(`${participantId}:${entry.id}`)}
+            predictionScore={(displayPredictionLookup || predictionLookup).get(`${participantId}:${entry.id}`)}
             metric={metric}
           />
         ))}
