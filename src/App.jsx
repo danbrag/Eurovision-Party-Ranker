@@ -179,12 +179,15 @@ function participantScoredEveryEntry(participantId, entries, scores) {
   );
 }
 
-function useSocket(setState) {
+function useSocket(roomCode, setState, setError) {
   useEffect(() => {
+    if (!roomCode) return undefined;
     const socket = io();
     socket.on("state:update", setState);
+    socket.on("room:error", (message) => setError(message || "Unable to join room."));
+    socket.emit("room:join", { roomCode });
     return () => socket.close();
-  }, [setState]);
+  }, [roomCode, setError, setState]);
 }
 
 export default function App() {
@@ -198,16 +201,46 @@ export default function App() {
   const participant = profileState.active;
   const localProfiles = profileState.profiles;
 
-  useSocket(setState);
+  useSocket(participant?.roomCode, setState, setError);
 
   useEffect(() => {
-    Promise.all([api("/api/config"), api("/api/state")])
-      .then(([appConfig, appState]) => {
-        setConfig(appConfig);
-        setState(appState);
+    let cancelled = false;
+
+    api("/api/config")
+      .then((appConfig) => {
+        if (!cancelled) setConfig(appConfig);
       })
-      .catch((err) => setError(err.message));
-  }, []);
+      .catch((err) => {
+        if (!cancelled) setError(err.message);
+      });
+
+    if (!participant?.roomCode) {
+      setState(emptyState);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    api(`/api/state?roomCode=${encodeURIComponent(participant.roomCode)}`)
+      .then((appState) => {
+        if (!cancelled) setState(appState);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err.message);
+        if (err.status === 400 || err.status === 403) {
+          setProfileState((current) => {
+            saveProfileState(current.profiles, null);
+            return { profiles: current.profiles, active: null };
+          });
+          setState(emptyState);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [participant?.roomCode]);
 
   const entries = state.entries || [];
   const performanceEntries = useMemo(() => finalEntries(entries), [entries]);
@@ -249,12 +282,18 @@ export default function App() {
 
   async function joinRoom(form) {
     setError("");
+    const roomCode = String(form.roomCode || "").trim().toUpperCase();
+    if (!roomCode) {
+      setError("Enter the room code.");
+      return;
+    }
+
     try {
       const data = await api("/api/join", {
         method: "POST",
-        body: { ...form, browserToken: browserToken() }
+        body: { ...form, roomCode, browserToken: browserToken() }
       });
-      const next = { ...data.participant, roomCode: form.roomCode.toUpperCase() };
+      const next = { ...data.participant, roomCode };
       const nextProfiles = upsertProfile(localProfiles, next);
       saveProfileState(nextProfiles, next);
       setProfileState({ profiles: nextProfiles, active: next });
@@ -317,17 +356,16 @@ export default function App() {
     setActiveTab(tabId);
   }
 
-  if (!config || !state.room) {
+  if (!config || (participant && !state.room)) {
     return <Splash message={error || "Warming up the stage lights..."} />;
   }
 
   if (!participant) {
     return (
       <JoinScreen
-        config={config}
         error={error}
         onJoin={joinRoom}
-        participantCount={state.participants.length}
+        participantCount={state.room ? state.participants.length : null}
         maxParticipants={maxParticipants}
         localProfiles={localProfiles}
         onSwitchProfile={switchProfile}
@@ -459,7 +497,6 @@ function StageBackdrop() {
 }
 
 function JoinScreen({
-  config,
   error,
   onJoin,
   participantCount,
@@ -468,18 +505,21 @@ function JoinScreen({
   onSwitchProfile,
   onForgetProfile
 }) {
-  const [roomCode, setRoomCode] = useState(config.roomCode);
+  const [roomCode, setRoomCode] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [releasing, setReleasing] = useState(false);
-  const roomProfiles = localProfiles.filter((profile) => profile.roomCode === roomCode.toUpperCase());
+  const normalizedRoomCode = roomCode.trim().toUpperCase();
+  const roomProfiles = normalizedRoomCode
+    ? localProfiles.filter((profile) => profile.roomCode === normalizedRoomCode)
+    : [];
 
   async function releaseName() {
-    if (!displayName.trim()) return;
+    if (!displayName.trim() || !normalizedRoomCode) return;
     setReleasing(true);
     try {
       await api("/api/release-name", {
         method: "POST",
-        body: { roomCode, displayName }
+        body: { roomCode: normalizedRoomCode, displayName }
       });
       const releasedProfile = roomProfiles.find(
         (profile) => profile.displayName.toLowerCase() === displayName.trim().toLowerCase()
@@ -504,7 +544,7 @@ function JoinScreen({
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            onJoin({ roomCode, displayName });
+            onJoin({ roomCode: normalizedRoomCode, displayName });
           }}
         >
           <label>
@@ -542,7 +582,9 @@ function JoinScreen({
             </div>
           </div>
         )}
-        <p className="subtle">{participantCount}/{maxParticipants} people have joined.</p>
+        {participantCount != null && (
+          <p className="subtle">{participantCount}/{maxParticipants} people have joined.</p>
+        )}
       </section>
     </div>
   );
@@ -2027,7 +2069,7 @@ function AdminView({ entries, state, setState, setConfig, setError, config }) {
   function exportAnalysisData(format) {
     setError("");
     const exportData = buildAdminExport(entries, state);
-    const roomCode = fileSafe(state.room?.roomCode || config?.roomCode || "room");
+    const roomCode = fileSafe(state.room?.roomCode || "room");
     const stamp = exportDateStamp();
     if (format === "csv") {
       downloadTextFile(

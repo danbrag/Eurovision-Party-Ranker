@@ -52,10 +52,10 @@ cp .env.example .env
 nano .env
 ```
 
-Set at least `ADMIN_PIN` to something private:
+Set `ROOM_CODE` and `ADMIN_PIN` to private values:
 
 ```bash
-ROOM_CODE=EUROVISION
+ROOM_CODE=choose-a-private-room-code
 ADMIN_PIN=
 HOST_PORT=3000
 MAX_PARTICIPANTS=6
@@ -63,7 +63,7 @@ OFFICIAL_WATCH_ENABLED=false
 OFFICIAL_WATCH_INTERVAL_MS=45000
 ```
 
-Set `ADMIN_PIN` to a value that is not shared publicly. The `.env` file is ignored by Git so your admin PIN does not get committed. Docker Compose passes these values into the container through `env_file`. If `ADMIN_PIN` is missing or left as a known placeholder, the app still starts, but admin actions are disabled until you fix `.env`.
+Set `ROOM_CODE` to the code you will share directly with participants, and set `ADMIN_PIN` to a value that is not shared publicly. The `.env` file is ignored by Git so your private settings do not get committed. Docker Compose passes these values into the container through `env_file`. If `ROOM_CODE` is missing, the server will not start. If `ADMIN_PIN` is missing or left as a known placeholder, the app still starts, but admin actions are disabled until you fix `.env`.
 
 ## 4. Start The App
 

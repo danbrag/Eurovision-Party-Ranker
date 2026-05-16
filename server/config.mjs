@@ -25,14 +25,22 @@ export const EVENT = {
 const isProduction = process.env.NODE_ENV === "production";
 const defaultAdminPin = isProduction ? "" : "1234";
 const adminPin = String(process.env.ADMIN_PIN || defaultAdminPin).trim();
+const roomCode = String(process.env.ROOM_CODE || "").trim().toUpperCase();
 const unsafeProductionPins = new Set(["", "1234", "change-this-before-deploying", "use-a-real-private-pin"]);
 
 export const config = {
   port: Number(process.env.PORT || 3000),
-  roomCode: (process.env.ROOM_CODE || "EUROVISION").trim().toUpperCase(),
+  roomCode,
   adminPin: isProduction && unsafeProductionPins.has(adminPin) ? "" : adminPin,
   dataDir: process.env.DATA_DIR || path.join(process.cwd(), ".local-data"),
   maxParticipants: Math.max(1, Number(process.env.MAX_PARTICIPANTS || 6) || 6),
   watcherEnabled: process.env.OFFICIAL_WATCH_ENABLED === "true",
   watcherIntervalMs: Number(process.env.OFFICIAL_WATCH_INTERVAL_MS || 45_000)
 };
+
+export function requireConfiguredRoomCode() {
+  if (!config.roomCode) {
+    throw new Error("ROOM_CODE must be configured before starting the server.");
+  }
+  return config.roomCode;
+}

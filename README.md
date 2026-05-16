@@ -19,7 +19,7 @@ Official Eurovision tallies are separate from house scores. Taste scores answer 
 ## How To Use
 
 1. Start the app and open `http://localhost:5173`.
-2. Join the room with the configured room code, default `EUROVISION`, and your display name.
+2. Join the room with the private configured room code and your display name.
 3. Use `Preview` before the show to read each artist description in running order. Tap `Play` on a row to expand the inline YouTube player.
 4. Use `My Rankings` during the show. Score each song from `0` to `12` in performance order on the left for taste and judges; the ranking board on the right can flip between both rankings.
 5. Use `Results` to see the score-derived average rankings, the sortable user score table, taste-vs-judges insights, and imported or manually entered official Eurovision results.
@@ -45,12 +45,13 @@ The database can store country-by-country vote rows imported by the watcher/impo
 
 ```bash
 cp .env.example .env
+# Edit .env and set a private ROOM_CODE.
 npm install
 npm run import:data
 npm run dev
 ```
 
-Open `http://localhost:5173`. For local development only, the server falls back to room code `EUROVISION` and admin PIN `1234` if `.env` does not set them.
+Open `http://localhost:5173`. The server requires an explicit `ROOM_CODE` before it starts. For local development only, the admin PIN falls back to `1234` if `.env` does not set it.
 
 Useful commands:
 
@@ -67,7 +68,7 @@ Quick start:
 
 ```bash
 cp .env.example .env
-# Edit .env and set a private ADMIN_PIN.
+# Edit .env and set private ROOM_CODE and ADMIN_PIN values.
 docker compose up -d --build
 ```
 
@@ -81,7 +82,7 @@ Docker Compose reads runtime settings from `.env` through `env_file`. Production
 
 | Variable | Purpose |
 | --- | --- |
-| `ROOM_CODE` | Shared room code shown to participants. |
+| `ROOM_CODE` | Private room code shared directly with participants. Required. |
 | `ADMIN_PIN` | Private admin unlock PIN. Required for production. |
 | `HOST_PORT` | Local host port bound by Docker Compose. The container always listens on `3000`. |
 | `MAX_PARTICIPANTS` | Maximum number of room participants. |

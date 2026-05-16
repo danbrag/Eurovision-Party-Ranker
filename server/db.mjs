@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { config } from "./config.mjs";
+import { config, requireConfiguredRoomCode } from "./config.mjs";
 
 const now = () => new Date().toISOString();
 const bool = (value) => (value ? 1 : 0);
@@ -50,6 +50,7 @@ function participantFromRow(row) {
 }
 
 export function openDatabase() {
+  requireConfiguredRoomCode();
   fs.mkdirSync(config.dataDir, { recursive: true });
   const dbPath = path.join(config.dataDir, "eurovision.sqlite");
   const db = new DatabaseSync(dbPath);

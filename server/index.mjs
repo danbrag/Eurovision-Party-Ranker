@@ -2,7 +2,7 @@ import express from "express";
 import http from "node:http";
 import path from "node:path";
 import { Server } from "socket.io";
-import { config, EVENT } from "./config.mjs";
+import { config, EVENT, requireConfiguredRoomCode } from "./config.mjs";
 import {
   getState,
   joinParticipant,
@@ -19,6 +19,7 @@ import { OfficialWatcher } from "./officialWatcher.mjs";
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+requireConfiguredRoomCode();
 const db = openDatabase();
 
 const broadcast = (state = getState(db, config.roomCode)) => {
@@ -51,27 +52,45 @@ function requireAdmin(req) {
   }
 }
 
+function normalizeRoomCode(roomCode) {
+  return String(roomCode || "").trim().toUpperCase();
+}
+
+function requireRoomCode(roomCode) {
+  const code = normalizeRoomCode(roomCode);
+  if (!code) throw Object.assign(new Error("Enter the room code."), { status: 400 });
+  if (code !== config.roomCode) {
+    throw Object.assign(new Error("That room code doesn't match this room."), { status: 403 });
+  }
+  return code;
+}
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, watcherRunning: watcher.running });
 });
 
 app.get("/api/config", (_req, res) => {
   res.json({
-    roomCode: config.roomCode,
     event: EVENT,
     maxParticipants: config.maxParticipants,
     watcherRunning: watcher.running
   });
 });
 
-app.get("/api/state", (req, res) => {
-  res.json(getState(db, String(req.query.roomCode || config.roomCode).toUpperCase()));
-});
+app.get(
+  "/api/state",
+  asyncRoute(async (req, res) => {
+    const roomCode = requireRoomCode(req.query.roomCode);
+    res.json(getState(db, roomCode));
+  })
+);
 
 app.post(
   "/api/join",
   asyncRoute(async (req, res) => {
-    const participant = joinParticipant(db, req.body || {});
+    const body = req.body || {};
+    const roomCode = requireRoomCode(body.roomCode);
+    const participant = joinParticipant(db, { ...body, roomCode });
     const state = getState(db, config.roomCode);
     broadcast(state);
     res.json({ participant, state });
@@ -81,7 +100,9 @@ app.post(
 app.post(
   "/api/release-name",
   asyncRoute(async (req, res) => {
-    releaseParticipantName(db, req.body || {});
+    const body = req.body || {};
+    const roomCode = requireRoomCode(body.roomCode);
+    releaseParticipantName(db, { ...body, roomCode });
     const state = getState(db, config.roomCode);
     broadcast(state);
     res.json({ ok: true, state });
@@ -91,7 +112,9 @@ app.post(
 app.post(
   "/api/score",
   asyncRoute(async (req, res) => {
-    setScore(db, req.body || {});
+    const body = req.body || {};
+    const roomCode = requireRoomCode(body.roomCode);
+    setScore(db, { ...body, roomCode });
     const state = getState(db, config.roomCode);
     broadcast(state);
     res.json({ ok: true, state });
@@ -101,7 +124,9 @@ app.post(
 app.post(
   "/api/rankings",
   asyncRoute(async (req, res) => {
-    setRankings(db, req.body || {});
+    const body = req.body || {};
+    const roomCode = requireRoomCode(body.roomCode);
+    setRankings(db, { ...body, roomCode });
     const state = getState(db, config.roomCode);
     broadcast(state);
     res.json({ ok: true, state });
@@ -183,8 +208,15 @@ app.post(
 );
 
 io.on("connection", (socket) => {
-  socket.join(config.roomCode);
-  socket.emit("state:update", getState(db, config.roomCode));
+  socket.on("room:join", (payload = {}) => {
+    try {
+      requireRoomCode(payload.roomCode);
+      socket.join(config.roomCode);
+      socket.emit("state:update", getState(db, config.roomCode));
+    } catch (error) {
+      socket.emit("room:error", error.message || "Unable to join room.");
+    }
+  });
 });
 
 const distPath = path.join(process.cwd(), "dist");
