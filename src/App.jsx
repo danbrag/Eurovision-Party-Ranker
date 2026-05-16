@@ -1092,16 +1092,16 @@ function ResultsWinnerCard({ standings, officialRows }) {
                     >
                       <span>{index + 1}</span>
                       <strong>{item.person.displayName}</strong>
-                      <output>{item.totalMiss} off</output>
-                      <small>{item.exactMatches}/{item.compared || officialCount} exact</small>
+                      <output>{item.totalMiss} total off</output>
+                      <small>{item.exactMatches} of {item.compared || officialCount} exact</small>
                     </button>
                     <div className="person-order-shell" aria-hidden={!personOpen}>
                       <div className="person-order-panel">
                         <div className="person-order-header">
-                          <span>Judges</span>
+                          <span>Your Rank</span>
                           <span>Song</span>
-                          <span>Final</span>
-                          <span>Result</span>
+                          <span>Official</span>
+                          <span>Off By</span>
                         </div>
                         <div className="person-order-list">
                           {personRows.length ? (
@@ -1130,7 +1130,7 @@ function ResultsWinnerCard({ standings, officialRows }) {
 function PersonOrderRow({ row }) {
   const exact = row.delta === 0;
   const direction = row.delta < 0 ? "high" : "low";
-  const label = exact ? "Correct" : row.delta < 0 ? `${Math.abs(row.delta)} high` : `${row.delta} low`;
+  const label = exact ? "Exact" : row.delta < 0 ? `${Math.abs(row.delta)} too high` : `${row.delta} too low`;
 
   return (
     <article className={cx("person-order-row", exact ? "exact" : direction)}>
@@ -1139,7 +1139,7 @@ function PersonOrderRow({ row }) {
         <strong>{row.entry.country}</strong>
         <span>{row.entry.song} by {row.entry.artist}</span>
       </div>
-      <span className="official-rank-pill">Final #{row.officialRank}</span>
+      <span className="official-rank-pill">Official #{row.officialRank}</span>
       <span className="verdict-pill">
         {exact ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
         {label}
