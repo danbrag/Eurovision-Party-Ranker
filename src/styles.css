@@ -538,7 +538,6 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 12px;
   min-width: 0;
 }
 
@@ -575,6 +574,21 @@ a {
 
 .ranking-board-toggle:disabled {
   cursor: default;
+}
+
+.ranking-board-content {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin-top: 12px;
+}
+
+.ranking-board-content-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ranking-board-content-inner > .segmented-control {
+  margin-bottom: 12px;
 }
 
 .segmented-control {
@@ -2284,8 +2298,19 @@ input {
     width: 100%;
   }
 
+  .ranking-board-content {
+    overflow: hidden;
+    transition:
+      grid-template-rows 360ms cubic-bezier(0.19, 1, 0.22, 1),
+      margin-top 360ms cubic-bezier(0.19, 1, 0.22, 1),
+      opacity 220ms ease;
+  }
+
   .ranking-board-panel.collapsed .ranking-board-content {
-    display: none;
+    grid-template-rows: 0fr;
+    margin-top: 0;
+    opacity: 0;
+    pointer-events: none;
   }
 
   .ranking-board-column-labels {

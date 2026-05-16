@@ -728,33 +728,35 @@ function ScoreView({ entries, participant, enjoymentLookup, predictionLookup, on
                 {boardCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
               </button>
             </h3>
-            <div className="segmented-control" aria-label="Ranking board score lens">
-              {[
-                ["enjoyment", "Taste"],
-                ["prediction", "Judges"]
-              ].map(([metric, label]) => (
-                <button
-                  key={metric}
-                  type="button"
-                  className={cx(boardMetric === metric && "active")}
-                  aria-pressed={boardMetric === metric}
-                  onClick={() => setBoardMetric(metric)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
           </div>
           <div id={boardContentId} className="ranking-board-content">
-            <RankingBoardList
-              entries={rankedEntries}
-              participantId={participant.id}
-              enjoymentLookup={enjoymentLookup}
-              predictionLookup={predictionLookup}
-              displayEnjoymentLookup={displayEnjoymentLookup}
-              displayPredictionLookup={displayPredictionLookup}
-              metric={boardMetric}
-            />
+            <div className="ranking-board-content-inner">
+              <div className="segmented-control" aria-label="Ranking board score lens">
+                {[
+                  ["enjoyment", "Taste"],
+                  ["prediction", "Judges"]
+                ].map(([metric, label]) => (
+                  <button
+                    key={metric}
+                    type="button"
+                    className={cx(boardMetric === metric && "active")}
+                    aria-pressed={boardMetric === metric}
+                    onClick={() => setBoardMetric(metric)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <RankingBoardList
+                entries={rankedEntries}
+                participantId={participant.id}
+                enjoymentLookup={enjoymentLookup}
+                predictionLookup={predictionLookup}
+                displayEnjoymentLookup={displayEnjoymentLookup}
+                displayPredictionLookup={displayPredictionLookup}
+                metric={boardMetric}
+              />
+            </div>
           </div>
         </section>
       </div>
