@@ -63,7 +63,7 @@ OFFICIAL_WATCH_ENABLED=false
 OFFICIAL_WATCH_INTERVAL_MS=45000
 ```
 
-Set `ADMIN_PIN` to a value that is not shared publicly. The `.env` file is ignored by Git so your admin PIN does not get committed. Docker Compose passes these values into the container through `env_file`, and the production server refuses to start if `ADMIN_PIN` is missing or left as a known placeholder.
+Set `ADMIN_PIN` to a value that is not shared publicly. The `.env` file is ignored by Git so your admin PIN does not get committed. Docker Compose passes these values into the container through `env_file`. If `ADMIN_PIN` is missing or left as a known placeholder, the app still starts, but admin actions are disabled until you fix `.env`.
 
 ## 4. Start The App
 
