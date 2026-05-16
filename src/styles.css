@@ -594,20 +594,24 @@ a {
 }
 
 .ranking-score-pair {
-  display: grid;
-  gap: 2px;
-  justify-items: end;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: end;
+  gap: 7px;
+  min-width: 76px;
 }
 
 .ranking-score-pair output {
   color: #39f4c1;
   font-weight: 900;
+  line-height: 1;
 }
 
 .ranking-score-pair span {
-  color: rgba(247, 248, 255, 0.42);
+  color: rgba(247, 248, 255, 0.34);
   font-size: 12px;
   font-weight: 900;
+  line-height: 1;
   white-space: nowrap;
 }
 
